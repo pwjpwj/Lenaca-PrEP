@@ -1,0 +1,124 @@
+---
+title: "PSA Figures"
+output: html_document
+date: "2023-09-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+load("MAT2")
+load("MAT2P1")
+load("MAT2P2")
+load("MAT2P3")
+```
+
+```{r}
+PSADATA<-bind_rows(as.data.frame(MAT2P1), as.data.frame(MAT2), as.data.frame(MAT2P2), as.data.frame(MAT2P3))
+colnames(PSADATA)<-c("Qalys", "Costs", "PREP")
+PSADATA<-as_tibble(PSADATA)
+PSADATA<-PSADATA%>%filter(Qalys!="NaN" | Costs!="NaN")
+PSADATA[,1:2]<-lapply(PSADATA[,1:2],as.numeric)
+#PSADATA
+#PSADATA$PREP<-chartr("CBV", "CAB", PSADATA$PREP)
+#for (i in 1:nrow(PSADATA)) {if(PSADATA$PREP[i]=="PREP-TDF") #PSADATA$PREP[i]<-"PREP-TDx"}
+```
+
+```{r}
+
+g<-ggplot(PSADATA, aes(Qalys, Costs, color=PREP))+
+  geom_point(alpha=0.4, size=1)+
+  theme_classic()+
+  #ylim(-1000000000,100000000000)+
+  #xlim(-1000000000,100000000000)+
+  #geom_abline(slope=25128, intercept=0)+
+  #geom_hline(yintercept =0)+
+  #geom_vline(xintercept =0)+
+  scale_x_log10()+
+  scale_y_log10()+
+  ylab("Costs in 2023 €")+
+  xlab("Qalys")+
+  ggtitle("Cost-effectiveness plane")+
+  theme(plot.title = element_text(hjust=0.5))
+  
+g
+```
+
+```{r}
+############
+PSADATA1<-cbind(MAT2P1[,1:2], MAT2P2[,1:2], MAT2P3[,1:2], MAT2[,1:2])
+PSADATA1<-apply(PSADATA1, 2, as.numeric)
+colnames(PSADATA1)<-c("QalysLEN", "CostsLEN", "QalysLEN_Red", "CostsLEN_Red","QalysLEN_Red_02", "CostsLEN_Red_02", "Qalys", "Costs")
+PSADATA1<-as_tibble(PSADATA1)
+PSADATA1<-PSADATA1%>%mutate(AQalys=QalysLEN-Qalys, 
+                      ACosts=CostsLEN-Costs,   
+                      ICERS_LEN=(ACosts)/(AQalys),
+                      AQalysLEN_Red=QalysLEN_Red-Qalys, 
+                      ACostsLEN_Red=CostsLEN_Red-Costs,   
+                      ICERS_LEN_Red=(ACostsLEN_Red)/(AQalysLEN_Red),
+                      AQalysLEN_Red_02=QalysLEN_Red_02-Qalys, 
+                      ACostsLEN_Red_02=CostsLEN_Red_02-Costs,                     ICERS_LEN_Red_02=(ACostsLEN_Red_02)/(AQalysLEN_Red_02))
+                            
+PSADATA1<-PSADATA1[complete.cases(PSADATA1),]
+
+PSADATA2<-PSADATA1%>%select(ICERS_LEN, ICERS_LEN_Red, ICERS_LEN_Red_02)
+
+PSADATA2[,1:3]<-PSADATA1[,c("ICERS_LEN", "ICERS_LEN_Red", "ICERS_LEN_Red_02")]
+
+PSA1<-cbind(PSADATA1[,c(9,10)], "PrEP-LEN")
+PSA2<-cbind(PSADATA1[,c(12,13)], "PrEP-LEN_Red")
+PSA3<-cbind(PSADATA1[,c(15,16)], "PrEP-LEN_Red_02") 
+colnames(PSA1)<-c("AQalys", "ACosts", "PREP")
+colnames(PSA2)<-c("AQalys", "ACosts", "PREP")
+colnames(PSA3)<-c("AQalys", "ACosts", "PREP")
+
+PSA<-bind_rows(PSA1, PSA2, PSA3)
+
+g1<-ggplot(PSADATA2)+
+  stat_ecdf(aes(ICERS_LEN), color="red", show.legend = TRUE)+
+  stat_ecdf(aes(ICERS_LEN_Red), color="yellow", show.legend = TRUE)+
+  stat_ecdf(aes(ICERS_LEN_Red_02), color="green", show.legend = TRUE)+
+  xlim(-10000,150000)+
+  ggtitle("Cost-effectiveness probability curves")+
+  ylab("Probability")+
+  xlab("Willingness to pay (2023 €)")+
+  geom_vline(xintercept=21865.5, color="black")+ # Croatia
+  geom_vline(xintercept=33895.59, color="red")+  # Spain
+geom_vline(xintercept=45130.1, color="blue")+    # Euro Zone
+  geom_vline(xintercept=128678.2, color="gold")+ # luxembourg
+  #geom_histogram()+
+  theme_classic()+
+  theme(plot.title = element_text(hjust=0.5))
+  
+g1
+
+###############
+```
+```{r}
+
+
+g<-ggplot(as.data.frame(PSA), aes(AQalys, ACosts, color=PREP))+
+  geom_point(alpha=0.4, size=1)+
+  theme_classic()+
+  #ylim(-1000000000,100000000000)+
+  #xlim(-1000000000,100000000000)+
+  #geom_abline(slope=25128, intercept=0)+
+  geom_hline(yintercept =0)+
+  geom_vline(xintercept =0)+
+  geom_abline(slope = 33895.59, color="red")+
+  #scale_x_log10()+
+  #scale_y_log10()+
+  ylab("Incremental Costs in 2023 €")+
+  xlab("Incremental Qalys")+
+  ggtitle("Cost-effectiveness plane")+
+  theme(plot.title = element_text(hjust=0.5))
+  
+g
+```
+
+```{r}
+tiff("PSA.tiff", width=12, height=14, units="in", res=300)
+plot_grid(g,g1, ncol=1, labels=c("A", "B"))
+dev.off
+```

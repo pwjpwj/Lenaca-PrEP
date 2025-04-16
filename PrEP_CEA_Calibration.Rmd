@@ -1,0 +1,235 @@
+---
+title: "Coste-eficacia de PrEP en España"
+author: "Philip Wikman"
+date: "15 de mayo de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+source("HIVSIM02exp03.R")
+source("HIVSIMCAL_LCA_01.R")
+source("invbeta.R")
+source("invgamma.R")
+library(parallel)
+library(DirichletReg)
+library(dplyr)
+library(cowplot)
+library(Rcpp)
+#sourceCpp("HIVSIM02expCpp.cpp")
+repeats<-7500
+years<-5
+```
+
+# Monte Carlo simulations for calibration of the model
+
+## Creating 12 clusters to process calibration in paralell
+```{r}
+cl<-makePSOCKcluster(detectCores())
+setDefaultCluster(cl)
+#clusterEvalQ(cl, {library(stats); library(DirichletReg)})
+clusterExport(NULL, c("HIVSIMCAL", "invbeta", "HIVSIM", "invgamma", "rdirichlet"))
+clusterSetRNGStream(cl = NULL, 123)
+ResultParam<-clusterCall(NULL, HIVSIMCAL, repeats)
+stopCluster(cl)
+save(ResultParam, file="ResultParam_LCA_03")
+```
+
+## Rearrange the results into a matrix and compare which run has the lowest r^2 
+```{r}
+load("ResultParam_LCA_01")
+repeats2<-repeats*12
+NevVIH_Sim<-array(unlist(ResultParam[c(1:12)][[1]][c(1:repeats)]), dim=c(years*52,20,repeats2))
+
+NevVIH_Anual<-matrix(data=0, nrow=repeats2, ncol=5)
+
+#for (i in 1:repeats2){
+#NevVIH_Anual[i,]<-c(sum(NevVIH_Sim[1:52,11,i]),
+#                     sum(NevVIH_Sim[53:104,11,i]),
+#                     sum(NevVIH_Sim[105:156,11,i]),
+#                     sum(NevVIH_Sim[157:208,11,i]),
+#                     sum(NevVIH_Sim[207:260,11,i]))
+#}
+
+#NevVIH<-c(1880,	1936,	1823,	1690,	1269) 2013-2017
+```
+
+# Fitting new AIDS cases/year
+```{r}
+
+NevSIDA_Anual<-matrix(data=0, nrow=repeats2, ncol=years)
+
+for (i in 1:repeats2){
+NevSIDA_Anual[i,]<-c(sum(NevVIH_Sim[1:52,14,i]),
+                     sum(NevVIH_Sim[53:104,14,i]),
+                     sum(NevVIH_Sim[105:156,14,i]),
+                     sum(NevVIH_Sim[157:208,14,i]),
+                     sum(NevVIH_Sim[207:260,14,i])) #sum(NevVIH_Sim[261:312,14,i]),
+                     #sum(NevVIH_Sim[313:364,14,i]),
+                     #sum(NevVIH_Sim[365:416,14,i]),
+                     #sum(NevVIH_Sim[417:468,14,i])
+}
+NevSIDA<-c(196,161,141,136,101) # 2013 y 14 275,	242, 215,	196, 210,162,
+
+ECM<-vector(mode="numeric", length=repeats2)
+
+ for (i in 1:repeats2){
+   x<-NevSIDA_Anual[i,]-NevSIDA
+   z<-sum(x^2) 
+   z
+   ECM[i]<-z
+ }
+ECM<-ifelse(is.infinite(ECM), 999999, ECM)
+ECM<-ifelse(ECM>5^92, 999999, ECM)
+ECM<-ifelse(is.na(ECM), 999999, ECM)
+#ECM<-(ECM-mean(ECM))/sd(ECM)
+b<-which(ECM==min(ECM))
+b
+min(ECM)
+```
+
+## Fitting mortality
+```{r}
+MortSIDAAnual<-c(342,334,293,235,240)*0.05  # 531,513,385,342, 
+MortSIDA_AnualSim<-matrix(data=0, nrow=repeats2, ncol=years)
+for (i in 1:repeats2){
+MortSIDA_AnualSim[i,]<-c(sum(NevVIH_Sim[1:52,13,i]),
+                     sum(NevVIH_Sim[53:104,13,i]),
+                     sum(NevVIH_Sim[105:156,13,i]),
+                     sum(NevVIH_Sim[157:208,13,i]),
+                     sum(NevVIH_Sim[207:260,13,i]))
+                     #sum(NevVIH_Sim[261:312,14,i]),
+                     #sum(NevVIH_Sim[313:364,14,i]),
+                     #sum(NevVIH_Sim[365:416,14,i]),
+                     #sum(NevVIH_Sim[417:468,14,i]))
+}
+
+ECM2<-vector(mode="numeric", length=repeats2)
+
+ for (repeats2 in 1:repeats2){
+   x<-MortSIDA_AnualSim[repeats2,]-MortSIDAAnual
+   z<-sum(x^2) 
+   z
+   ECM2[repeats2]<-z
+ }
+ECM2<-ifelse(is.infinite(ECM2), 999999, ECM2)
+ECM2<-ifelse(is.na(ECM2), 999999, ECM2)
+ECM2<-ifelse(ECM2>5^92, 999999, ECM2)
+#ECM2<-(ECM2-mean(ECM2))/sd(ECM2)
+b2<-which(ECM2==min(ECM2))
+b2
+min(ECM2)
+
+```
+
+## Fitting new HIV diagnoses
+```{r}
+NEWHIVinf<-c(2406,1713,1741,1810,1757)*1.075# Asumo que la fracción no diagnosticada es del 7.5%, por lo que a los nuevos diagnósticos los incremento un 7.5%. Fuente Informe VIH 2023. 2348,2604 (2013 y 2014) 2457,2529,2532,2431,
+NEWHIVinf_AnualSim<-matrix(data=0, nrow=repeats2, ncol=years)
+for (i in 1:repeats2){
+NEWHIVinf_AnualSim[i,]<-c(sum(NevVIH_Sim[1:52,20,i]),
+                     sum(NevVIH_Sim[53:104,20,i]),
+                     sum(NevVIH_Sim[105:156,20,i]),
+                     sum(NevVIH_Sim[157:208,20,i]),
+                     sum(NevVIH_Sim[207:260,20,i]))
+                     #sum(NevVIH_Sim[261:312,14,i]),
+                     #sum(NevVIH_Sim[313:364,14,i]),
+                     #sum(NevVIH_Sim[365:416,14,i]),
+                     #sum(NevVIH_Sim[417:468,14,i]))
+}
+
+ECM3<-vector(mode="numeric", length=repeats2)
+
+ for (repeats2 in 1:repeats2){
+   x<-NEWHIVinf_AnualSim[repeats2,]-NEWHIVinf
+   z<-sum(x^2) 
+   z
+   ECM3[repeats2]<-z
+ }
+ECM3<-ifelse(is.infinite(ECM3), 999999999, ECM3)
+ECM3<-ifelse(is.na(ECM3), 999999999, ECM3)
+ECM3<-ifelse(ECM3>5^92, 999999999, ECM3)
+#ECM3<-(ECM3-mean(ECM3))/sd(ECM3)
+#ECM3<-ECM3/10
+b3<-which(ECM3==min(ECM3))
+b3
+min(ECM3)
+#which(ECM3<500)
+```
+
+```{r}
+
+ECM5<-(ECM-mean(ECM)/sd(ECM))+(ECM2-mean(ECM2)/sd(ECM2))+(ECM3-mean(ECM3)/sd(ECM3))
+#ECMM<-cbind(ECM, ECM2, ECM3) 
+b5<-which(ECM5==min(ECM5))
+b5
+min(ECM5)
+which(ECM5<100)
+
+ECM[b5]
+ECM2[b5]
+ECM3[b5]
+```
+
+```{r}
+
+#b5<-97202
+
+par(mfrow=c(2,2))
+plot(x=MortSIDAAnual, type="line", col="red",ylim=c(0,500))
+lines(x=MortSIDA_AnualSim[b5,], col="blue")
+plot(x=NevSIDA, type="line", col="red", ylim=c(0,1000))
+lines(x=NevSIDA_Anual[b5,], col="blue")
+plot(x=NEWHIVinf, type="line", col="red", ylim=c(0,10000))
+lines(x=NEWHIVinf_AnualSim[b5,], col="blue")
+#plot(x=Susceptible[b5,], type="line", col="red", ylim=c(0,50000))
+```
+```{r}
+MortSida<-ggplot(as.data.frame(MortSIDAAnual), aes(x=2019:2023, y=MortSIDAAnual))+
+   geom_line()+theme_classic()+
+   xlab("Years")+
+   ylab("AIDS deaths")+
+   ggtitle("AIDS deaths by year in MSM")+
+   geom_line(aes(y=MortSIDA_AnualSim[b5,]), color="red")+
+   ylim(0,3000)
+MortSida
+```
+```{r}
+NewSIDA<-ggplot(as.data.frame(NevSIDA), aes(x=2019:2023, y=NevSIDA))+
+   geom_line()+theme_classic()+
+   xlab("Years")+
+   ylab("New AIDS cases")+
+   ggtitle("New AIDS cases by year in MSM")+
+   geom_line(aes(x=2019:2023, y=NevSIDA_Anual[b5,]), color="red")+
+   ylim(-100,5000)
+NewSIDA
+```
+```{r}
+NewHIV<-ggplot(as.data.frame(NEWHIVinf), aes(x=2019:2023, y=NEWHIVinf))+
+   geom_line()+theme_classic()+
+   xlab("Years")+
+   ylab("New HIV infections")+
+   ggtitle("New HIV infections per year in MSM")+
+   geom_line(aes(x=2019:2023, y=NEWHIVinf_AnualSim[b5,]), color="red")+
+   ylim(-100,10000)
+NewHIV
+```
+
+## Combined plot
+```{r}
+tiff("Fig2.tiff", units="in", width=10, height=12, res=300)
+plot_grid(NewHIV, NewSIDA, ncol=1, labels=c("A", "B"))
+dev.off
+```
+
+
+## Save the best parameters for the final analysis
+```{r}
+y<-b5-repeats*trunc(b5/repeats)
+Bestparam<-as.data.frame(ResultParam[[1]][[2]][])
+Bestparam<-Bestparam[,y]
+
+Bestparam
+save(Bestparam, file="Bestparam_LCA")
+```
