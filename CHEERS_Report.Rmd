@@ -1,0 +1,657 @@
+---
+title: "Cost-Effectiveness of Lenacapavir versus Tenofovir/Emtricitabine for HIV Pre-Exposure Prophylaxis among Men Who Have Sex with Men in Spain: A Model-Based Economic Evaluation"
+author: "Philip Wikman"
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    reference_docx: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.width = 6, fig.height = 4, dpi = 300)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(scales)
+source("QalyCalc.R")
+source("CostCalc.R")
+```
+
+# Abstract
+
+**Objective:** To evaluate the cost-effectiveness of twice-yearly subcutaneous lenacapavir (LEN) compared with daily oral tenofovir disoproxil fumarate/emtricitabine (TDF/FTC) as pre-exposure prophylaxis (PrEP) for HIV prevention among men who have sex with men (MSM) in Spain.
+
+**Methods:** A dynamic, compartmental HIV transmission model was developed, stratified by age (up to 85 years) and sexual-activity group (four risk strata), with weekly time steps over a 20-year time horizon. The model was calibrated to Spanish epidemiological data (2019--2023) on new HIV infections, new AIDS cases, and AIDS-related deaths using Latin Hypercube Sampling (5,000 runs) followed by local optimization. Costs (2023 euros) and quality-adjusted life-years (QALYs) were discounted at 3% per annum. Deterministic one-way sensitivity analysis (OWSA, ±20% variation on 29 parameters) and probabilistic sensitivity analysis (PSA, 1,000 iterations) were conducted. A price-threshold analysis determined the maximum cost-effective price for lenacapavir.
+
+**Results:** In the base-case analysis, lenacapavir PrEP produced 15,353 incremental QALYs at an incremental cost of €65.9 billion over 20 years compared with TDF/FTC PrEP, yielding an incremental cost-effectiveness ratio (ICER) of €4,293,887 per QALY gained. At a willingness-to-pay (WTP) threshold of 1× GDP per capita (€33,896/QALY), lenacapavir would become cost-effective at a weekly price of approximately €34.08 (annual: €1,772; per 6-month dose: €886). In the PSA (1,000 iterations with common random numbers), the ICER of the means was €3,612,443/QALY, and the probability of lenacapavir being cost-effective at the Spanish GDP per capita threshold was 0%.
+
+**Conclusions:** At its current list price (€898.82/week), lenacapavir PrEP is not cost-effective relative to generic TDF/FTC in Spain. Substantial price reductions---to approximately €34/week or €886 per semi-annual injection---would be required to achieve cost-effectiveness at conventional WTP thresholds.
+
+\newpage
+
+# 1. Introduction
+
+## 1.1 Background and Rationale
+
+HIV infection remains a public health challenge in Spain, with approximately 1,800--2,400 new diagnoses reported annually among MSM, the population group most affected. Pre-exposure prophylaxis with daily oral TDF/FTC has demonstrated high efficacy (86% risk reduction) and is available as a generic formulation at relatively low cost in Spain. Lenacapavir, a first-in-class capsid inhibitor administered as a subcutaneous injection every six months, demonstrated 96% efficacy in the PURPOSE 1 trial, potentially offering improved adherence through its long-acting formulation. However, its substantially higher acquisition cost raises questions about its value for money relative to existing PrEP options.
+
+## 1.2 Objective
+
+This study aimed to evaluate the cost-effectiveness of lenacapavir versus TDF/FTC as PrEP among MSM in Spain over a 20-year time horizon, from a healthcare payer perspective, and to determine the price at which lenacapavir would become cost-effective.
+
+# 2. Methods
+
+## 2.1 Study Design and CHEERS Compliance
+
+This is a model-based cost-effectiveness analysis reported following the Consolidated Health Economic Evaluation Reporting Standards (CHEERS 2022). The analysis compares two PrEP strategies: (1) daily oral TDF/FTC and (2) twice-yearly subcutaneous lenacapavir, both delivered to HIV-negative MSM in Spain within an open, dynamic HIV transmission model.
+
+## 2.2 Setting and Perspective
+
+The analysis adopts the perspective of the Spanish healthcare payer (National Health System). The target population is MSM in Spain, estimated at 892,955 individuals (source: INE), of whom an estimated 68,972 were living with HIV at baseline.
+
+## 2.3 Comparators
+
+- **Intervention:** Lenacapavir PrEP (96% risk reduction; PURPOSE 1 trial)
+- **Comparator:** TDF/FTC PrEP (86% risk reduction)
+
+Both strategies are evaluated within the dynamic transmission model, which captures indirect (herd) effects of PrEP on HIV incidence.
+
+## 2.4 Time Horizon and Discounting
+
+The time horizon is 20 years, with weekly time steps (52 weeks/year × 20 years = 1,040 weeks). Both costs and health outcomes are discounted at 3% per annum.
+
+## 2.5 Model Structure
+
+### 2.5.1 Dynamic Transmission Model
+
+A deterministic, compartmental dynamic HIV transmission model was developed, structured as follows:
+
+- **Age stratification:** 85 single-year age groups
+- **Sexual-activity groups:** Four risk strata defined by partner change rates (very high, high, low, very low), with proportions calibrated from the model
+- **HIV disease progression:** Seven stages of untreated HIV infection (stages 1--7, representing acute through chronic phases), an AIDS stage, and a treated (ART) stage
+- **PrEP compartment:** Susceptible individuals transition on and off PrEP at fixed weekly rates (W = 0.00192 on-rate; Woff = 0.0038 off-rate, based on SiPrEP program data)
+- **Transmission:** Frequency-dependent, governed by per-partnership transmissibility (B) and stage-specific infectiousness multipliers, with mixing between risk groups
+
+The model tracks susceptible, PrEP-protected, infected (7 stages), AIDS, treated, and dead compartments. Key outputs include new HIV infections, new AIDS cases, and deaths at each weekly time step.
+
+### 2.5.2 Force of Infection
+
+The force of infection depends on the partnership change rate of each risk group, the prevalence of HIV across disease stages, the per-partnership transmission probability, and the PrEP risk reduction. PrEP reduces the per-partnership probability of acquisition by 86% (TDF/FTC) or 96% (lenacapavir).
+
+## 2.6 Model Calibration
+
+The model was calibrated to Spanish epidemiological data for the period 2019--2023 using a two-stage procedure:
+
+### 2.6.1 Calibration Targets
+
+```{r}
+cal_targets <- data.frame(
+  Year = 2019:2023,
+  `New AIDS cases` = c(196, 161, 141, 136, 101),
+  `AIDS deaths (MSM)` = round(c(342, 334, 293, 235, 240) * 0.26, 1),
+  `New HIV infections` = round(c(2406, 1713, 1741, 1810, 1757) * 1.075, 1),
+  check.names = FALSE
+)
+kable(cal_targets, caption = "Table 1. Calibration targets (annual counts, 2019--2023)")
+```
+
+AIDS deaths were scaled by 0.26 to reflect the MSM-attributable fraction (Jarrín et al., AIDS 2024). New HIV infections were inflated by 7.5% to account for the undiagnosed fraction (Informe VIH 2023).
+
+### 2.6.2 Calibration Procedure
+
+1. **Latin Hypercube Sampling (LHS):** 5,000 parameter sets were sampled across 28 parameters using a maximin LHS design.
+2. **Goodness-of-fit criterion:** For each parameter set, normalized root-mean-square error (NRMSE) was computed for each of the three calibration targets. The minimax criterion (minimizing the maximum NRMSE across targets) was used to select the best-fitting set.
+3. **Local optimization:** The top 10 LHS parameter sets were refined using the L-BFGS-B algorithm (bounded optimization) to further minimize the minimax NRMSE.
+4. The final best-fitting parameter vector (28 parameters) was saved and used for the base-case analysis.
+
+### 2.6.3 Calibrated Parameters
+
+```{r}
+param_names <- c(
+  "MSM living with HIV", "CD4 <200 proportion", "CD4 200-350 proportion",
+  "CD4 >350 proportion", "Proportion on ART", "Population growth rate",
+  "Mortality CD4 200-350", "Mortality CD4 >350", "Mortality AIDS",
+  "Partner rate (very high)", "Partner rate (high)", "Partner rate (low)",
+  "Partner rate (very low)", "Prop. very high risk", "Prop. high risk",
+  "Prop. low risk", "Prop. very low risk", "Per-partnership transmissibility",
+  "Transition I1→I2", "Transition I2→I3", "Transition I3→I4",
+  "Transition I4→I5", "Transition I5→I6", "Transition I6→I7",
+  "Transition I7→AIDS", "Treatment rate 1", "Treatment rate 2", "Treatment rate 3"
+)
+load("Best_theta_Param")
+param_table <- data.frame(
+  Parameter = param_names,
+  Value = round(best_theta, 6)
+)
+kable(param_table, caption = "Table 2. Calibrated parameter values (best-fitting set)")
+```
+
+## 2.7 Health Outcomes
+
+Health outcomes are measured in quality-adjusted life-years (QALYs). Utility weights (weekly) were assigned as follows:
+
+```{r}
+utilities <- data.frame(
+  `Health state` = c("Susceptible / on PrEP", "Acute HIV (stage 1)",
+                     "Chronic HIV (stages 2-7, CD4 >350)", "AIDS", "On ART"),
+  `Annual utility` = c(1.00, 0.84, 0.94, 0.70, 0.96),
+  check.names = FALSE
+)
+kable(utilities, caption = "Table 3. Health-state utility weights")
+```
+
+QALYs were computed by summing, over all 1,040 weekly time steps, the product of the number of individuals in each health state, the corresponding weekly utility weight, and the annual discount factor (3%).
+
+## 2.8 Costs
+
+The analysis includes direct healthcare costs from the Spanish NHS perspective, denominated in 2023 euros. Costs were discounted at 3% per annum.
+
+```{r}
+costs_table <- data.frame(
+  `Cost component` = c("TDF/FTC PrEP (weekly)", "Lenacapavir PrEP (weekly)",
+                       "ART treatment (weekly)", "AIDS care (weekly, derived from €19,000/year)"),
+  `Unit cost (€)` = c(26.94, 898.82, 188.54, round(19000/52, 2)),
+  check.names = FALSE
+)
+kable(costs_table, caption = "Table 4. Unit costs (2023 €, weekly)")
+```
+
+Total costs for each strategy include the sum of discounted PrEP costs (for all person-weeks on PrEP), ART treatment costs (for all person-weeks on treatment), and AIDS care costs (for all person-weeks in the AIDS state).
+
+## 2.9 Analytical Methods
+
+### 2.9.1 Base-Case Analysis
+
+The incremental cost-effectiveness ratio (ICER) was calculated as:
+
+$$\text{ICER} = \frac{\text{Cost}_{\text{LEN}} - \text{Cost}_{\text{TDF/FTC}}}{\text{QALY}_{\text{LEN}} - \text{QALY}_{\text{TDF/FTC}}}$$
+
+The WTP threshold was set at Spain's GDP per capita (€33,895.59; Statista 2023).
+
+### 2.9.2 Deterministic Sensitivity Analysis
+
+One-way sensitivity analysis (OWSA) was performed by varying each of 29 parameters (28 calibrated parameters plus adherence) by ±20% from the base-case value and re-running both model arms. The resulting ICERs were displayed in a tornado diagram.
+
+### 2.9.3 Probabilistic Sensitivity Analysis
+
+PSA was conducted with 1,000 Monte Carlo iterations (50 per CPU core × 20 cores). In each iteration, parameter values were drawn from their assigned distributions:
+
+- **Normal distributions** for mortality rates, partner change rates, transmissibility, and population growth rate (mean = calibrated value, SD = 20% of mean)
+- **Dirichlet distributions** for CD4 category proportions and risk-group proportions
+- **Beta distributions** (via inverse-beta transformation) for transition rates, treatment probabilities, and proportion on ART
+
+The cost-effectiveness acceptability curve (CEAC) and the incremental cost-effectiveness scatter plot were produced from PSA results. Net monetary benefit was used to construct the CEAC to correctly handle iterations where the QALY difference is negative. Both figures display WTP thresholds for multiple European countries (Croatia: €21,866/QALY; Spain: €33,896/QALY; Euro Zone: €45,130/QALY; Luxembourg: €128,678/QALY) based on GDP per capita.
+
+### 2.9.4 Price-Threshold Analysis
+
+Because the discounted cost of PrEP is linear in the unit cost per week, the maximum cost-effective weekly price for lenacapavir was solved analytically:
+
+$$\text{Price}_{\text{threshold}} = \frac{\text{WTP} \times \Delta\text{QALY} + \text{Cost}_{\text{TDF/FTC}} - \text{Cost}_{\text{LEN}}^{\text{non-PrEP}}}{\sum_{t} \text{PrEP}_{t} / (1+r)^{y(t)}}$$
+
+where the denominator is the total discounted PrEP person-weeks in the lenacapavir arm (evaluated at unit cost = €1).
+
+# 3. Results
+
+## 3.1 Base-Case Analysis
+
+```{r}
+base_case <- data.frame(
+  Outcome = c("Total QALYs", "Total costs (€)", "Incremental QALYs", "Incremental costs (€)", "ICER (€/QALY)"),
+  `TDF/FTC PrEP` = c("15,038,297", "12,737,197,827", "---", "---", "---"),
+  `Lenacapavir PrEP` = c("15,053,650", "78,662,136,958", "15,353", "65,924,939,131", "4,293,887"),
+  check.names = FALSE
+)
+kable(base_case, caption = "Table 5. Base-case cost-effectiveness results (20-year horizon, 3% discount rate)")
+```
+
+Lenacapavir PrEP generated 15,353 additional QALYs over 20 years compared with TDF/FTC PrEP. However, the incremental cost was approximately €65.9 billion, driven almost entirely by the high acquisition cost of lenacapavir (€898.82/week vs. €26.94/week for TDF/FTC). The resulting ICER of €4,293,887/QALY far exceeds any conventional WTP threshold.
+
+### 3.1.1 Epidemiological Outcomes: New HIV Infections
+
+```{r new-infections-table}
+Q2P_year_tdf <- data.frame(Weeks = Q1P$Weeks, NewHIV = Q1P$NewHIV) |>
+  transform(Year = ((Weeks - 1) %/% 52) + 1) |>
+  aggregate(NewHIV ~ Year, data = _, sum)
+
+Q2LCA_year_len <- data.frame(Weeks = Q1LCA$Weeks, NewHIV = Q1LCA$NewHIV) |>
+  transform(Year = ((Weeks - 1) %/% 52) + 1) |>
+  aggregate(NewHIV ~ Year, data = _, sum)
+
+yearly <- merge(Q2P_year_tdf, Q2LCA_year_len, by = "Year", suffixes = c("_TDF", "_LEN"))
+yearly$Averted <- yearly$NewHIV_TDF - yearly$NewHIV_LEN
+
+yearly_display <- yearly
+yearly_display$NewHIV_TDF <- round(yearly_display$NewHIV_TDF)
+yearly_display$NewHIV_LEN <- round(yearly_display$NewHIV_LEN)
+yearly_display$Averted <- round(yearly_display$Averted)
+colnames(yearly_display) <- c("Year", "TDF/FTC", "Lenacapavir", "Infections averted")
+
+kable(yearly_display,
+      caption = "Table 6. Annual new HIV infections by PrEP strategy and infections averted")
+```
+
+Over 20 years, TDF/FTC PrEP resulted in `r format(round(sum(Q1P$NewHIV)), big.mark = ",")` cumulative new HIV infections, while lenacapavir PrEP resulted in `r format(round(sum(Q1LCA$NewHIV)), big.mark = ",")`, corresponding to `r format(round(sum(Q1P$NewHIV) - sum(Q1LCA$NewHIV)), big.mark = ",")` infections averted. The annual number of infections averted grew over time as the differential in HIV prevalence accumulated (from 7 in year 1 to 886 in year 20).
+
+```{r new-infections-plot, fig.cap="Figure 1. Annual new HIV infections by PrEP strategy over 20 years"}
+yearly_long <- yearly |>
+  select(Year, NewHIV_TDF, NewHIV_LEN) |>
+  pivot_longer(cols = -Year, names_to = "Strategy", values_to = "New_HIV") |>
+  mutate(Strategy = ifelse(Strategy == "NewHIV_TDF", "TDF/FTC PrEP", "Lenacapavir PrEP"))
+
+ggplot(yearly_long, aes(x = Year, y = New_HIV, color = Strategy)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1.5) +
+  scale_x_continuous(breaks = seq(1, 20, by = 2)) +
+  scale_y_continuous(labels = comma) +
+  labs(x = "Year", y = "New HIV infections", color = NULL) +
+  theme_classic() +
+  theme(legend.position = "bottom")
+```
+
+```{r averted-plot, fig.cap="Figure 2. Annual HIV infections averted by lenacapavir versus TDF/FTC"}
+ggplot(yearly, aes(x = Year, y = Averted)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  scale_x_continuous(breaks = seq(1, 20, by = 2)) +
+  labs(x = "Year", y = "Infections averted") +
+  theme_classic()
+```
+
+### 3.1.2 HIV Incidence Rates
+
+```{r incidence-table}
+Total_TDF <- sum(Q1P$NewHIV, na.rm = TRUE)
+PY_TDF <- sum(Q1P$Susceptible + Q1P$PrEP, na.rm = TRUE) / 52
+inc_TDF <- Total_TDF / PY_TDF * 1000
+
+Total_LEN <- sum(Q1LCA$NewHIV, na.rm = TRUE)
+PY_LEN <- sum(Q1LCA$Susceptible + Q1LCA$PrEP, na.rm = TRUE) / 52
+inc_LEN <- Total_LEN / PY_LEN * 1000
+
+inc_table <- data.frame(
+  Measure = c("Total new HIV infections", "Person-years at risk",
+              "Incidence per 1,000 person-years"),
+  `TDF/FTC PrEP` = c(format(round(Total_TDF), big.mark = ","),
+                      format(round(PY_TDF), big.mark = ","),
+                      round(inc_TDF, 2)),
+  `Lenacapavir PrEP` = c(format(round(Total_LEN), big.mark = ","),
+                          format(round(PY_LEN), big.mark = ","),
+                          round(inc_LEN, 2)),
+  check.names = FALSE
+)
+kable(inc_table, caption = "Table 7. Cumulative HIV incidence over 20 years")
+```
+
+The overall 20-year incidence rate was `r round(inc_TDF, 2)` per 1,000 person-years under TDF/FTC PrEP and `r round(inc_LEN, 2)` per 1,000 person-years under lenacapavir PrEP, a reduction of `r round((1 - inc_LEN/inc_TDF) * 100, 1)`%.
+
+### 3.1.3 Population Dynamics
+
+```{r calibration-plot, fig.height=7, fig.cap="Figure 3. Observed versus simulated annual outcomes after local optimization (calibration period 2019--2023). All three calibration targets are shown: new AIDS cases, AIDS-attributable deaths among MSM, and new HIV infections."}
+obs_year <- data.frame(
+  Year = 1:5,
+  NewAIDS_obs    = c(196, 161, 141, 136, 101),
+  AIDSdeaths_obs = c(342, 334, 293, 235, 240) * 0.26,
+  NewInf_obs     = c(2406, 1713, 1741, 1810, 1757) * 1.075
+)
+
+load("Best_theta_Param")
+source("HIVSIM02exp05.R")
+source("sim_weekly_to_yearly.R")
+source("make_slices_HIVSIM.R")
+source("rs_at.R")
+source("draw_params_from_u.R")
+
+simulate_weekly_from_theta <- function(theta, m, DistEdad, RiskRed) {
+  Age <- 85L; NoSem <- 52L; years_local <- 5L
+  NumHSHVIH <- theta[1]; NumHSH <- 892955 - NumHSHVIH
+  ACD4 <- theta[2]; I7CD4 <- theta[3]; Rest <- theta[4]; PropTR <- theta[5]
+  G <- theta[6]; Woff <- 0.0038; W <- 0.00192
+  mVIH235 <- theta[7]; mVIH35 <- theta[8]; mAIDS <- theta[9]
+  Cvh <- theta[10]; Ch <- theta[11]; Cl <- theta[12]; Cvl <- theta[13]
+  nvh <- theta[14]; nh <- theta[15]; nl <- theta[16]; nvl <- theta[17]
+  B <- theta[18]; I12 <- theta[19]; I23 <- theta[20]; I34 <- theta[21]
+  I45 <- theta[22]; I56 <- theta[23]; I67 <- theta[24]; I78 <- theta[25]
+  PTr <- theta[26:28]
+  Q <- HIVSIM(Age, NoSem, NumHSH, NumHSHVIH, ACD4, I7CD4, Rest,
+              G, Woff, W, m, mVIH235, mVIH35, mAIDS,
+              Cvh, Ch, Cl, Cvl, nvh, nh, nl, nvl, B,
+              I12, I23, I34, I45, I56, I67, I78, PTr, years_local, PropTR,
+              DistEdad, RiskRed)
+  Slices <- make_slices_HIVSIM(Age)
+  QQ <- array(as.numeric(unlist(lapply(Q, as.matrix))),
+              dim = c(52L, Slices$ncol_expected, years_local))
+  nrows <- years_local * 52L
+  Qmat <- matrix(0, nrow = nrows, ncol = 19L)
+  colnames(Qmat) <- c("Weeks","Susceptible","Inf1","Inf2","Inf3","Inf4",
+                       "Inf5","Inf6","Inf7","AIDS","Treated","Dead","NewAIDS",
+                       "Lvh","Lh","Ll","Lvl","New_HIV_inf","New_HIV_treatments")
+  r0 <- 0L
+  for (t in seq_len(years_local)) {
+    rr <- r0 + seq_len(52L)
+    Qmat[rr,1L] <- rr; Qmat[rr,2L] <- rs_at(QQ, Slices$S0, t)
+    Qmat[rr,3L] <- rs_at(QQ, Slices$I1, t); Qmat[rr,4L] <- rs_at(QQ, Slices$I2, t)
+    Qmat[rr,5L] <- rs_at(QQ, Slices$I3, t); Qmat[rr,6L] <- rs_at(QQ, Slices$I4, t)
+    Qmat[rr,7L] <- rs_at(QQ, Slices$I5, t); Qmat[rr,8L] <- rs_at(QQ, Slices$I6, t)
+    Qmat[rr,9L] <- rs_at(QQ, Slices$I7, t); Qmat[rr,10L] <- rs_at(QQ, Slices$AIDS, t)
+    Qmat[rr,11L] <- rs_at(QQ, Slices$Treated, t); Qmat[rr,12L] <- rs_at(QQ, Slices$Dead, t)
+    Qmat[rr,13L] <- rs_at(QQ, Slices$NewAIDS, t)
+    Qmat[rr,14L] <- rs_at(QQ, Slices$FI_vh, t); Qmat[rr,15L] <- rs_at(QQ, Slices$FI_h, t)
+    Qmat[rr,16L] <- rs_at(QQ, Slices$FI_l, t); Qmat[rr,17L] <- rs_at(QQ, Slices$FI_vl, t)
+    Qmat[rr,18L] <- rs_at(QQ, Slices$NewHIV, t)
+    Qmat[rr,19L] <- rs_at(QQ, Slices$NewTreatments, t)
+    r0 <- r0 + 52L
+  }
+  as.data.frame(Qmat, check.names = FALSE)
+}
+
+m <- read.csv("MortPobGen.csv", header = TRUE, sep = ";")
+DistEdad <- numeric(85)
+DistEdad[1:10]  <- 0.114106384 / 10
+DistEdad[11:20] <- 0.116645332 / 10
+DistEdad[21:30] <- 0.281029342 / 10
+DistEdad[31:40] <- 0.30552628  / 10
+DistEdad[41:50] <- 0.112127906 / 10
+DistEdad[51:85] <- 0.070564755 / 35
+
+best_sim_week <- simulate_weekly_from_theta(best_theta, m, DistEdad, RiskRed = 1 - 0.86)
+best_sim_year <- sim_weekly_to_yearly(best_sim_week, years = 5L, weeks_per_year = 52L)
+
+# Reshape all three calibration targets into long format
+cal_df <- merge(obs_year, best_sim_year, by = "Year")
+
+plot_df <- cal_df |>
+  transmute(Year,
+            NewAIDS_obs, NewAIDS_sim,
+            AIDSdeaths_obs, AIDSdeaths_sim,
+            NewInf_obs, NewInf_sim) |>
+  pivot_longer(cols = -Year,
+               names_to = c("outcome", "type"),
+               names_pattern = "(.*)_(obs|sim)$",
+               values_to = "value") |>
+  mutate(
+    outcome = case_when(
+      outcome == "NewAIDS"    ~ "New AIDS cases",
+      outcome == "AIDSdeaths" ~ "AIDS deaths (MSM-attributable)",
+      outcome == "NewInf"     ~ "New HIV infections"
+    ),
+    outcome = factor(outcome, levels = c("New HIV infections",
+                                          "New AIDS cases",
+                                          "AIDS deaths (MSM-attributable)")),
+    type = ifelse(type == "obs", "Observed", "Simulated")
+  )
+
+# Y-axis limits per panel to anchor at zero
+limits_df <- data.frame(
+  outcome = factor(c("New AIDS cases", "New AIDS cases",
+                      "AIDS deaths (MSM-attributable)", "AIDS deaths (MSM-attributable)",
+                      "New HIV infections", "New HIV infections"),
+                   levels = levels(plot_df$outcome)),
+  value   = c(0, 300, 0, 120, 0, 3000),
+  Year    = 1, type = "Observed"
+)
+
+ggplot(plot_df, aes(x = Year, y = value, colour = type, shape = type)) +
+  geom_blank(data = limits_df) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2.5) +
+  facet_wrap(~ outcome, scales = "free_y", ncol = 1) +
+  scale_x_continuous(breaks = 1:5, labels = 2019:2023) +
+  scale_colour_manual(values = c("Observed" = "black", "Simulated" = "#E41A1C")) +
+  scale_shape_manual(values = c("Observed" = 16, "Simulated" = 17)) +
+  labs(x = "Year", y = "Annual count", colour = NULL, shape = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom",
+        strip.text = element_text(face = "bold"))
+```
+
+### 3.1.4 Model-Predicted Compartment Dynamics (20-Year Horizon)
+
+```{r compartment-plot, fig.width=7, fig.height=5, fig.cap="Figure 4. Population in key compartments over 20 years under both PrEP strategies"}
+comp_tdf <- Q1P |>
+  select(Weeks, Susceptible, PrEP, AIDS, Treated) |>
+  pivot_longer(-Weeks, names_to = "Compartment", values_to = "N") |>
+  mutate(Strategy = "TDF/FTC PrEP")
+
+comp_len <- Q1LCA |>
+  select(Weeks, Susceptible, PrEP, AIDS, Treated) |>
+  pivot_longer(-Weeks, names_to = "Compartment", values_to = "N") |>
+  mutate(Strategy = "Lenacapavir PrEP")
+
+comp_all <- bind_rows(comp_tdf, comp_len) |>
+  mutate(Year = Weeks / 52)
+
+ggplot(comp_all, aes(x = Year, y = N, color = Strategy)) +
+  geom_line(linewidth = 0.5, alpha = 0.8) +
+  facet_wrap(~ Compartment, scales = "free_y") +
+  scale_y_continuous(labels = comma) +
+  labs(x = "Year", y = "Number of individuals", color = NULL) +
+  theme_classic() +
+  theme(legend.position = "bottom")
+```
+
+### 3.1.5 Cost-Effectiveness Plane and CEAC (PSA)
+
+```{r ce-plane, fig.cap="Figure 5. Incremental cost-effectiveness scatter plot (PSA, 1,000 iterations) with WTP thresholds for selected countries"}
+load("MAT2_LHS")
+load("MAT2LEN")
+
+PSADATA1_fig <- cbind(MAT2P3[, 1:2], MAT2[, 1:2])
+PSADATA1_fig <- apply(PSADATA1_fig, 2, as.numeric)
+colnames(PSADATA1_fig) <- c("QalysLEN", "CostsLEN", "Qalys", "Costs")
+PSADATA1_fig <- as_tibble(PSADATA1_fig) |>
+  mutate(AQalys = QalysLEN - Qalys, ACosts = CostsLEN - Costs) |>
+  filter(complete.cases(pick(everything())))
+
+x_label_pos <- max(PSADATA1_fig$AQalys, na.rm = TRUE) * 0.72
+
+ggplot(PSADATA1_fig, aes(AQalys, ACosts)) +
+  geom_point(alpha = 0.4, size = 1, color = "red") +
+  geom_hline(yintercept = 0, color = "grey40") +
+  geom_vline(xintercept = 0, color = "grey40") +
+  geom_abline(slope = 21865.5,  intercept = 0, color = "black",     linetype = "dotted") +
+  geom_abline(slope = 33895.59, intercept = 0, color = "red",       linetype = "dotted") +
+  geom_abline(slope = 45130.1,  intercept = 0, color = "blue",      linetype = "dotted") +
+  geom_abline(slope = 128678.2, intercept = 0, color = "gold",      linetype = "dotted") +
+  annotate("text", x = x_label_pos, y = 21865.5  * x_label_pos, label = "Croatia",    hjust = 0, size = 3, color = "black") +
+  annotate("text", x = x_label_pos, y = 33895.59 * x_label_pos, label = "Spain",      hjust = 0, size = 3, color = "red") +
+  annotate("text", x = x_label_pos, y = 45130.1  * x_label_pos, label = "Euro Zone",  hjust = 0, size = 3, color = "blue") +
+  annotate("text", x = x_label_pos, y = 128678.2 * x_label_pos, label = "Luxembourg", hjust = 0, size = 3, color = "goldenrod3") +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  labs(x = "Incremental QALYs", y = "Incremental costs (2023 €)") +
+  theme_classic()
+```
+
+```{r ceac-plot, fig.cap="Figure 6. Cost-effectiveness acceptability curve (CEAC) with WTP thresholds for selected countries"}
+wtp_seq <- seq(-100000, 150000, by = 500)
+
+ceac_fig <- tibble(
+  wtp  = wtp_seq,
+  p_ce = sapply(wtp_seq, function(lambda) {
+    mean(lambda * PSADATA1_fig$AQalys - PSADATA1_fig$ACosts > 0, na.rm = TRUE)
+  })
+)
+
+ggplot(ceac_fig, aes(x = wtp, y = p_ce)) +
+  geom_line(color = "red", linewidth = 0.9) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "grey50") +
+  geom_vline(xintercept = 21865.5,  color = "black",     linetype = "dotted") +
+  geom_vline(xintercept = 33895.59, color = "red",       linetype = "dotted") +
+  geom_vline(xintercept = 45130.1,  color = "blue",      linetype = "dotted") +
+  geom_vline(xintercept = 128678.2, color = "gold",      linetype = "dotted") +
+  annotate("text", x = 21865.5,  y = 0.02, label = "Croatia",    angle = 90, hjust = 0, size = 3, color = "black") +
+  annotate("text", x = 33895.59, y = 0.02, label = "Spain",      angle = 90, hjust = 0, size = 3, color = "red") +
+  annotate("text", x = 45130.1,  y = 0.02, label = "Euro Zone",  angle = 90, hjust = 0, size = 3, color = "blue") +
+  annotate("text", x = 128678.2, y = 0.02, label = "Luxembourg", angle = 90, hjust = 0, size = 3, color = "goldenrod3") +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+  scale_x_continuous(labels = comma) +
+  labs(x = "Willingness to pay (€/QALY)", y = "Probability cost-effective") +
+  theme_classic()
+```
+
+### 3.1.6 Price-Threshold Plot
+
+```{r price-threshold-plot, fig.cap="Figure 7. ICER as a function of lenacapavir weekly price"}
+discounted_prep_pw <- CostCalc(Q1LCA[, "PrEP"], C = 1)
+wtp_val <- 33895.59
+threshold_price <- (wtp_val * (QALYsLCA - QALYsP) + CostsP - CostsLCA1 - CostsLCA2) / discounted_prep_pw
+
+price_max  <- ceiling(threshold_price * 3)
+price_grid <- seq(0, price_max, length.out = 200)
+
+icer_by_price <- sapply(price_grid, function(p) {
+  cost_lca_at_p <- CostsLCA1 + CostsLCA2 + discounted_prep_pw * p
+  (cost_lca_at_p - CostsP) / (QALYsLCA - QALYsP)
+})
+
+icer_plot_df <- data.frame(Weekly_price = price_grid, ICER = icer_by_price)
+
+ggplot(icer_plot_df, aes(x = Weekly_price, y = ICER)) +
+  geom_line(linewidth = 0.8) +
+  geom_hline(yintercept = wtp_val, linetype = "dashed", color = "forestgreen") +
+  geom_vline(xintercept = threshold_price, linetype = "dotted", color = "forestgreen") +
+  annotate("text", x = threshold_price + price_max * 0.05,
+           y = wtp_val * 1.15,
+           label = paste0("1× GDP/cap\n(", round(threshold_price, 1), " €/wk)"),
+           hjust = 0, size = 3.2, color = "forestgreen") +
+  labs(x = "Lenacapavir weekly cost (€)", y = "ICER (€/QALY)") +
+  theme_classic()
+```
+
+## 3.2 Deterministic Sensitivity Analysis
+
+The OWSA tornado diagram identified the following parameters as most influential on the ICER:
+
+```{r}
+top_owsa <- data.frame(
+  Parameter = c("Per-partnership transmissibility (B)",
+                "Partner change rate, very high (Cvh)",
+                "Proportion very high risk (nvh)",
+                "Proportion high risk (nh)",
+                "Treatment probability 2 (PTr2)",
+                "Number MSM with HIV",
+                "Adherence"),
+  `ICER range` = c("1,878K -- 11,142K",
+                    "1,809K -- 10,644K",
+                    "3,057K -- 6,417K",
+                    "3,125K -- 5,562K",
+                    "3,497K -- 5,289K",
+                    "3,620K -- 5,302K",
+                    "2,609K -- 4,294K"),
+  check.names = FALSE
+)
+kable(top_owsa, caption = "Table 8. Parameters with largest impact on the ICER (OWSA, ±20%)")
+```
+
+The ICER was most sensitive to transmission-related parameters (B, Cvh) and the distribution of the MSM population across risk groups. Under no single-parameter variation did the ICER fall below the GDP per capita WTP threshold.
+
+## 3.3 Probabilistic Sensitivity Analysis
+
+Across 1,000 PSA iterations, the ICER computed as the ratio of mean incremental costs to mean incremental QALYs was €3,612,443/QALY, consistent with the deterministic base-case estimate. Mean incremental QALYs were 15,942 (IQR: 77 to 2,345) and mean incremental costs were €57.6 billion (IQR: €12.1 billion to €99.1 billion). The wide IQR for incremental QALYs reflects the fact that, in iterations where drawn parameters yield low baseline HIV incidence, the absolute difference between 86% and 96% risk reduction becomes very small. Because both PSA arms used common random numbers (identical parameter draws), incremental QALYs were positive in all 1,000 iterations.
+
+At a WTP threshold of €33,896/QALY (1× GDP per capita), the probability that lenacapavir PrEP is cost-effective was **0%** across all 1,000 iterations. The CEAC confirms that even at substantially higher WTP thresholds, the probability remains negligible.
+
+## 3.4 Price-Threshold Analysis
+
+```{r}
+price_results <- data.frame(
+  `WTP threshold` = "1× GDP per capita (€33,896)",
+  `Max weekly price (€)` = "34.08",
+  `Max 6-month dose price (€)` = "886",
+  `Max annual price (€)` = "1,772",
+  `Current weekly price (€)` = "898.82",
+  `Required reduction` = "96.2%",
+  check.names = FALSE
+)
+kable(price_results, caption = "Table 9. Price-threshold analysis results")
+```
+
+For lenacapavir to achieve cost-effectiveness at 1× GDP per capita, its weekly price would need to fall from €898.82 to approximately €34.08---a reduction of over 96%. Expressed per semi-annual injection, the cost-effective price is approximately €886.
+
+# 4. Discussion
+
+## 4.1 Summary of Findings
+
+This analysis demonstrates that, at its current list price, lenacapavir PrEP is not cost-effective compared with generic TDF/FTC PrEP in Spain. Although lenacapavir's higher efficacy (96% vs. 86% risk reduction) generates additional QALYs by preventing more HIV infections, the incremental health gains are modest in absolute terms (15,353 QALYs over 20 years across the entire MSM population) and are vastly outweighed by the drug acquisition cost differential.
+
+## 4.2 Context and Comparison
+
+The finding that long-acting injectable PrEP faces cost-effectiveness challenges at current prices is consistent with international analyses. The critical driver is the ratio of drug cost to incremental efficacy: while lenacapavir offers a meaningful improvement in relative risk reduction (from 14% to 4% residual risk), the absolute reduction in infections translates to a relatively small QALY gain at the population level when the comparator is an already-effective generic PrEP option.
+
+## 4.3 Strengths
+
+- Use of a dynamic transmission model captures indirect (herd) effects of PrEP
+- Calibration to multiple Spanish epidemiological endpoints (2019--2023)
+- Two-stage calibration procedure (LHS + local optimization) improves parameter estimation
+- Comprehensive uncertainty analysis (OWSA and PSA)
+- Analytical price-threshold calculation provides a clear policy-relevant benchmark
+
+## 4.4 Limitations
+
+- The model assumes homogeneous mixing within risk groups and does not capture network effects
+- PrEP uptake and discontinuation rates were held constant and not varied by strategy (i.e., potential adherence advantages of injectable PrEP were not modeled as differential uptake)
+- Utility weights were not drawn from Spanish-specific preference studies
+- Although the PSA used common random numbers (identical seed) across the two comparator arms, the large variance in incremental QALYs---driven by parameter sets that yield low baseline HIV incidence---limits the precision of individual-iteration ICERs
+- Indirect costs (e.g., productivity losses) and broader societal benefits of HIV prevention were not included
+- The model does not account for HIV drug resistance
+
+## 4.5 Implications
+
+From a policy perspective, the price-threshold result (€886 per semi-annual dose) provides a concrete negotiation target for the Spanish NHS. Lenacapavir could achieve cost-effectiveness through (a) substantial manufacturer price reductions, (b) targeting PrEP to the highest-risk subgroups where the absolute benefit is greatest, or (c) accounting for broader societal benefits not captured in this healthcare-payer analysis. If lenacapavir improves real-world PrEP adherence and retention compared with daily oral regimens (a plausible but unmodeled benefit), the effective QALY gain could be larger than estimated here.
+
+# 5. Conclusions
+
+At current pricing, lenacapavir PrEP is not cost-effective compared with generic TDF/FTC for HIV prevention among MSM in Spain. A price reduction of approximately 96%---to roughly €34/week or €886 per semi-annual injection---would be needed to achieve cost-effectiveness at the conventional WTP threshold of 1× GDP per capita. These results can inform pricing negotiations and reimbursement decisions for long-acting PrEP in Spain and similar European settings.
+
+\newpage
+
+# CHEERS 2022 Checklist
+
+```{r}
+cheers <- data.frame(
+  Item = c(1:28),
+  Topic = c(
+    "Title", "Abstract", "Background and objectives", "Health economic analysis plan",
+    "Study population", "Setting and location", "Comparators", "Perspective",
+    "Time horizon", "Discount rate", "Selection of outcomes",
+    "Measurement of outcomes", "Valuation of outcomes",
+    "Measurement and valuation of resources and costs",
+    "Currency, price date, and conversion",
+    "Rationale for model", "Description of model",
+    "Analytics and assumptions", "Characterizing heterogeneity",
+    "Characterizing distributional effects", "Characterizing uncertainty",
+    "Approach to engagement with affected populations",
+    "Study parameters", "Summary of main results",
+    "Effect of uncertainty", "Effect of engagement with affected populations",
+    "Study findings, limitations, generalizability, current knowledge",
+    "Source of funding"
+  ),
+  `Reported` = c(
+    "Yes", "Yes", "Section 1", "N/A (no pre-registered protocol)",
+    "Section 2.2", "Section 2.2", "Section 2.3", "Section 2.2",
+    "Section 2.4", "Section 2.4", "Section 2.7",
+    "Section 2.7", "Section 2.7, Table 3",
+    "Section 2.8, Table 4", "Section 2.8",
+    "Section 2.5", "Section 2.5", "Section 2.9",
+    "Section 2.5 (risk-group stratification)", "N/A",
+    "Sections 2.9.2, 2.9.3, 3.2, 3.3", "N/A",
+    "Tables 2-4", "Section 3.1, Table 5",
+    "Sections 3.2, 3.3", "N/A",
+    "Section 4", "To be disclosed"
+  ),
+  check.names = FALSE
+)
+kable(cheers, caption = "CHEERS 2022 Reporting Checklist")
+```
+
+# References
+
+1. Jarrín I, et al. AIDS deaths among MSM in Spain. *AIDS*. 2024.
+2. Informe de Vigilancia Epidemiológica del VIH y SIDA en España 2023. Ministerio de Sanidad.
+3. Nichols BE, et al. Sexual behaviour parameters for HIV transmission models. *BMC Infectious Diseases*. 2016.
+4. Alejos B, et al. Mortality among HIV-infected patients by CD4 count. *Medicine*. 2016.
+5. Nuñez M, et al. Treatment initiation probabilities. *AIDS*. 2018.
+6. PURPOSE 1 trial. Lenacapavir for HIV prevention. 2024.
+7. Statista. GDP per capita in Spain, 2023. Available from: https://www.statista.com/statistics/263773/gross-domestic-product-gdp-per-capita-in-spain/
+8. Husereau D, et al. Consolidated Health Economic Evaluation Reporting Standards 2022 (CHEERS 2022). *Value in Health*. 2022;25(1):3-9.
