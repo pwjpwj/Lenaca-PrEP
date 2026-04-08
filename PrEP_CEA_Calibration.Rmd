@@ -8,51 +8,61 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
-source("HIVSIM02exp03.R")
-source("HIVSIMCAL_LCA_01.R")
+source("HIVSIM02exp05.R")
+source("HIVSIMCAL_LCA_04.R")
 source("invbeta.R")
 source("invgamma.R")
+library(future)
+library(future.apply) 
 library(parallel)
 library(DirichletReg)
 library(dplyr)
 library(cowplot)
 library(Rcpp)
-#sourceCpp("HIVSIM02expCpp.cpp")
-repeats<-7500
+
+repeats<-5000
 years<-5
+m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")
+DistEdad<-vector(length=85)
+DistEdad[1:10]<-0.114106384/10
+DistEdad[11:20]<-0.116645332/10
+DistEdad[21:30]<-0.281029342/10
+DistEdad[31:40]<-0.30552628/10
+DistEdad[41:50]<-0.112127906/10
+DistEdad[51:85]<-0.070564755/35
+RiskRed<-1-0.86
 ```
 
 # Monte Carlo simulations for calibration of the model
 
-## Creating 12 clusters to process calibration in paralell
+## Creating 20 clusters to process calibration in paralell
 ```{r}
-cl<-makePSOCKcluster(detectCores())
+cl<-makePSOCKcluster(20)
 setDefaultCluster(cl)
 #clusterEvalQ(cl, {library(stats); library(DirichletReg)})
-clusterExport(NULL, c("HIVSIMCAL", "invbeta", "HIVSIM", "invgamma", "rdirichlet"))
-clusterSetRNGStream(cl = NULL, 123)
-ResultParam<-clusterCall(NULL, HIVSIMCAL, repeats)
+clusterExport(cl, c("HIVSIMCAL", "invbeta", "HIVSIM", "invgamma", "rdirichlet", "m", "DistEdad", "RiskRed"))
+clusterSetRNGStream(cl = cl, 123)
+ResultParam<-clusterCall(cl, HIVSIMCAL, repeats, m, DistEdad, RiskRed)
 stopCluster(cl)
-save(ResultParam, file="ResultParam_LCA_03")
+save(ResultParam, file="ResultParam_LCA_07a")
+
 ```
-
-## Rearrange the results into a matrix and compare which run has the lowest r^2 
+ 
 ```{r}
-load("ResultParam_LCA_01")
-repeats2<-repeats*12
-NevVIH_Sim<-array(unlist(ResultParam[c(1:12)][[1]][c(1:repeats)]), dim=c(years*52,20,repeats2))
+load("ResultParam_LCA_07a")
+repeats2<-repeats*20
 
-NevVIH_Anual<-matrix(data=0, nrow=repeats2, ncol=5)
+# Collect all simulation data.frames from all workers
+Sim_list <- unlist(lapply(ResultParam, function(z) z[[1]]), recursive = FALSE)  # length = 40
+# Each element is a 260x20 data.frame
 
-#for (i in 1:repeats2){
-#NevVIH_Anual[i,]<-c(sum(NevVIH_Sim[1:52,11,i]),
-#                     sum(NevVIH_Sim[53:104,11,i]),
-#                     sum(NevVIH_Sim[105:156,11,i]),
-#                     sum(NevVIH_Sim[157:208,11,i]),
-#                     sum(NevVIH_Sim[207:260,11,i]))
-#}
+# Convert to a 3D array: time x variables x simulation
+NevVIH_Sim <- array(
+  as.numeric(unlist(lapply(Sim_list, as.matrix))),
+  dim = c(260, 20, length(Sim_list))
+)
 
-#NevVIH<-c(1880,	1936,	1823,	1690,	1269) 2013-2017
+NevVIH_Sim[2,,1]
 ```
 
 # Fitting new AIDS cases/year
@@ -65,7 +75,8 @@ NevSIDA_Anual[i,]<-c(sum(NevVIH_Sim[1:52,14,i]),
                      sum(NevVIH_Sim[53:104,14,i]),
                      sum(NevVIH_Sim[105:156,14,i]),
                      sum(NevVIH_Sim[157:208,14,i]),
-                     sum(NevVIH_Sim[207:260,14,i])) #sum(NevVIH_Sim[261:312,14,i]),
+                     sum(NevVIH_Sim[207:260,14,i])) 
+                     #sum(NevVIH_Sim[261:312,14,i]),
                      #sum(NevVIH_Sim[313:364,14,i]),
                      #sum(NevVIH_Sim[365:416,14,i]),
                      #sum(NevVIH_Sim[417:468,14,i])
@@ -91,7 +102,7 @@ min(ECM)
 
 ## Fitting mortality
 ```{r}
-MortSIDAAnual<-c(342,334,293,235,240)*0.05  # 531,513,385,342, 
+MortSIDAAnual<-c(342,334,293,235,240)*0.26  #0.26 proportion in Jarrin AIDS 2024. 531,513,385,342, 
 MortSIDA_AnualSim<-matrix(data=0, nrow=repeats2, ncol=years)
 for (i in 1:repeats2){
 MortSIDA_AnualSim[i,]<-c(sum(NevVIH_Sim[1:52,13,i]),
@@ -128,15 +139,12 @@ min(ECM2)
 NEWHIVinf<-c(2406,1713,1741,1810,1757)*1.075# Asumo que la fracción no diagnosticada es del 7.5%, por lo que a los nuevos diagnósticos los incremento un 7.5%. Fuente Informe VIH 2023. 2348,2604 (2013 y 2014) 2457,2529,2532,2431,
 NEWHIVinf_AnualSim<-matrix(data=0, nrow=repeats2, ncol=years)
 for (i in 1:repeats2){
-NEWHIVinf_AnualSim[i,]<-c(sum(NevVIH_Sim[1:52,20,i]),
-                     sum(NevVIH_Sim[53:104,20,i]),
-                     sum(NevVIH_Sim[105:156,20,i]),
-                     sum(NevVIH_Sim[157:208,20,i]),
-                     sum(NevVIH_Sim[207:260,20,i]))
-                     #sum(NevVIH_Sim[261:312,14,i]),
-                     #sum(NevVIH_Sim[313:364,14,i]),
-                     #sum(NevVIH_Sim[365:416,14,i]),
-                     #sum(NevVIH_Sim[417:468,14,i]))
+NEWHIVinf_AnualSim[i,]<-c(sum(NevVIH_Sim[1:52,19,i]),
+                     sum(NevVIH_Sim[53:104,19,i]),
+                     sum(NevVIH_Sim[105:156,19,i]),
+                     sum(NevVIH_Sim[157:208,19,i]),
+                     sum(NevVIH_Sim[207:260,19,i]))
+                     
 }
 
 ECM3<-vector(mode="numeric", length=repeats2)
@@ -147,9 +155,9 @@ ECM3<-vector(mode="numeric", length=repeats2)
    z
    ECM3[repeats2]<-z
  }
-ECM3<-ifelse(is.infinite(ECM3), 999999999, ECM3)
-ECM3<-ifelse(is.na(ECM3), 999999999, ECM3)
-ECM3<-ifelse(ECM3>5^92, 999999999, ECM3)
+#ECM3<-ifelse(is.infinite(ECM3), 999999999, ECM3)
+#ECM3<-ifelse(is.na(ECM3), 999999999, ECM3)
+#ECM3<-ifelse(ECM3>5^92, 999999999, ECM3)
 #ECM3<-(ECM3-mean(ECM3))/sd(ECM3)
 #ECM3<-ECM3/10
 b3<-which(ECM3==min(ECM3))
@@ -160,12 +168,12 @@ min(ECM3)
 
 ```{r}
 
-ECM5<-(ECM-mean(ECM)/sd(ECM))+(ECM2-mean(ECM2)/sd(ECM2))+(ECM3-mean(ECM3)/sd(ECM3))
+ECM5<-(ECM-mean(ECM))/sd(ECM)+(ECM2-mean(ECM2))/sd(ECM2)+(ECM3-mean(ECM3))/sd(ECM3)
+#ECM5<-ECM+ECM2+ECM3
 #ECMM<-cbind(ECM, ECM2, ECM3) 
 b5<-which(ECM5==min(ECM5))
 b5
 min(ECM5)
-which(ECM5<100)
 
 ECM[b5]
 ECM2[b5]
@@ -173,17 +181,14 @@ ECM3[b5]
 ```
 
 ```{r}
+par(mfrow=c(3,1))
+plot(x=MortSIDAAnual, type="line", col="red",ylim=c(0,1000000))
+lines(x=MortSIDA_AnualSim[b5[1],], col="blue")
+plot(x=NevSIDA, type="line", col="red", ylim=c(0,1000000))
+lines(x=NevSIDA_Anual[b5[1],], col="blue")
+plot(x=NEWHIVinf, type="line", col="red", ylim=c(0,50000))
+lines(x=NEWHIVinf_AnualSim[b5[1],], col="blue")
 
-#b5<-97202
-
-par(mfrow=c(2,2))
-plot(x=MortSIDAAnual, type="line", col="red",ylim=c(0,500))
-lines(x=MortSIDA_AnualSim[b5,], col="blue")
-plot(x=NevSIDA, type="line", col="red", ylim=c(0,1000))
-lines(x=NevSIDA_Anual[b5,], col="blue")
-plot(x=NEWHIVinf, type="line", col="red", ylim=c(0,10000))
-lines(x=NEWHIVinf_AnualSim[b5,], col="blue")
-#plot(x=Susceptible[b5,], type="line", col="red", ylim=c(0,50000))
 ```
 ```{r}
 MortSida<-ggplot(as.data.frame(MortSIDAAnual), aes(x=2019:2023, y=MortSIDAAnual))+
@@ -191,8 +196,8 @@ MortSida<-ggplot(as.data.frame(MortSIDAAnual), aes(x=2019:2023, y=MortSIDAAnual)
    xlab("Years")+
    ylab("AIDS deaths")+
    ggtitle("AIDS deaths by year in MSM")+
-   geom_line(aes(y=MortSIDA_AnualSim[b5,]), color="red")+
-   ylim(0,3000)
+   geom_line(aes(y=MortSIDA_AnualSim[b5[1],]), color="red")+
+   ylim(0,15000)
 MortSida
 ```
 ```{r}
@@ -202,7 +207,7 @@ NewSIDA<-ggplot(as.data.frame(NevSIDA), aes(x=2019:2023, y=NevSIDA))+
    ylab("New AIDS cases")+
    ggtitle("New AIDS cases by year in MSM")+
    geom_line(aes(x=2019:2023, y=NevSIDA_Anual[b5,]), color="red")+
-   ylim(-100,5000)
+   ylim(-100,1000)
 NewSIDA
 ```
 ```{r}
@@ -212,24 +217,27 @@ NewHIV<-ggplot(as.data.frame(NEWHIVinf), aes(x=2019:2023, y=NEWHIVinf))+
    ylab("New HIV infections")+
    ggtitle("New HIV infections per year in MSM")+
    geom_line(aes(x=2019:2023, y=NEWHIVinf_AnualSim[b5,]), color="red")+
-   ylim(-100,10000)
+   ylim(0,4000)
 NewHIV
 ```
 
 ## Combined plot
 ```{r}
-tiff("Fig2.tiff", units="in", width=10, height=12, res=300)
-plot_grid(NewHIV, NewSIDA, ncol=1, labels=c("A", "B"))
-dev.off
+#tiff("Fig2.tiff", units="in", width=10, height=12, res=300)
+plot_grid(NewHIV, NewSIDA, MortSida, ncol=1, labels=c("A", "B", "C"))
+#dev.off
 ```
 
 
 ## Save the best parameters for the final analysis
 ```{r}
-y<-b5-repeats*trunc(b5/repeats)
-Bestparam<-as.data.frame(ResultParam[[1]][[2]][])
+y<-b5#-repeats*trunc(b5/repeats)
+Params_list <- lapply(ResultParam, `[[`, 2)
+Params_all <- do.call(cbind, Params_list)
+
+Bestparam<-as.data.frame(Params_all)
 Bestparam<-Bestparam[,y]
 
 Bestparam
-save(Bestparam, file="Bestparam_LCA")
+save(Bestparam, file="Bestparam_LCA_07a")
 ```

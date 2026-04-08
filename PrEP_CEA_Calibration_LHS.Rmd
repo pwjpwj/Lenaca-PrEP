@@ -1,0 +1,195 @@
+---
+title: "Coste-eficacia de PrEP en España"
+author: "Philip Wikman"
+date: "15 de mayo de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+source("HIVSIM02exp05.R")
+source("HIVSIMCAL_LCA_LHS.R")
+source("invbeta_u.R")
+source("invgamma_u.R")
+source("rdirichlet_u.R")
+source("draw_params_from_u.R")
+source("sim_weekly_to_yearly.R")
+source("make_slices_HIVSIM.R")
+source("rs_at.R")
+library(tidyr)
+library(parallel)
+library(DirichletReg)
+library(dplyr)
+library(cowplot)
+library(lhs)
+
+years<-5
+m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")
+DistEdad<-vector(length=85)
+DistEdad[1:10]<-0.114106384/10
+DistEdad[11:20]<-0.116645332/10
+DistEdad[21:30]<-0.281029342/10
+DistEdad[31:40]<-0.30552628/10
+DistEdad[41:50]<-0.112127906/10
+DistEdad[51:85]<-0.070564755/35
+RiskRed<-1-0.86
+```
+
+# Monte Carlo simulations for calibration of the model
+
+## Generation of LHS design for 32 parameters
+```{r}
+set.seed(123)
+N_runs   <- 5000
+n_par    <- 28
+n_cores  <- 20
+
+U <- randomLHS(N_runs, n_par)
+
+# split indices into 20 chunks
+idx_list <- split(1:N_runs, cut(1:N_runs, breaks = n_cores, labels = FALSE))
+
+U_list <- lapply(idx_list, function(idx) U[idx, , drop = FALSE])
+
+cl <- makePSOCKcluster(n_cores)
+clusterExport(cl, c("HIVSIMCAL_LHS", "draw_params_from_u","make_slices_HIVSIM","rs_at", "invbeta_u","invgamma_u","rdirichlet_u", "m", "DistEdad", "RiskRed", "HIVSIM"))
+clusterSetRNGStream(cl, 123)
+
+ResultParam <- clusterMap(
+  cl,
+  fun     = HIVSIMCAL_LHS,
+  U_block = U_list,
+  MoreArgs = list(m = m, DistEdad = DistEdad, RiskRed = RiskRed)
+)
+
+stopCluster(cl)
+save(ResultParam, file="ResultParam")
+```
+ 
+```{r}
+load("ResultParam")
+
+# ResultParam: list of length 20 from your cluster run
+# Each ResultParam[[i]] is list(R_block, Params_block)
+
+traj_blocks  <- lapply(ResultParam, `[[`, 1L)   # list of lists of data.frames
+all_trajs    <- unlist(traj_blocks, recursive = FALSE)
+
+param_blocks <- lapply(ResultParam, `[[`, 2L)   # each 32 x repeats
+Params_all   <- do.call(cbind, param_blocks)   # 32 x N_runs
+
+N_runs <- length(all_trajs)
+dim(Params_all)  # 32 x N_runs
+```
+
+```{r}
+# obs_year: data.frame with 5 rows and cols:
+#   Year, NewAIDS_obs, AIDSdeaths_obs, NewInf_obs
+ obs_year <- data.frame(
+   Year = 1:5,
+   NewAIDS_obs    = c(196,161,141,136,101),
+   AIDSdeaths_obs = c(342,334,293,235,240)*0.26,  #0.26 proportion in Jarrin AIDS 2024. 531,513,385,342,
+   NewInf_obs     = c(2406,1713,1741,1810,1757)*1.075# Asumo que la fracción no diagnosticada es del 7.5%, por lo que a los nuevos diagnósticos los incremento un 7.5%. Fuente Informe VIH 2023. 2348,2604 (2013 y 2014) 2457,2529,2532,2431,
+)
+
+rmse_newAIDS   <- numeric(N_runs)
+rmse_AIDSdeath <- numeric(N_runs)
+rmse_newInf    <- numeric(N_runs)
+
+for (i in seq_len(N_runs)) {
+  sim_week <- all_trajs[[i]]
+  
+  sim_year <- sim_weekly_to_yearly(sim_week, years = 5L, weeks_per_year = 52L)
+  
+  # join by Year to be safe
+  df_year <- merge(
+    obs_year,
+    sim_year,
+    by = "Year",
+    all = FALSE
+  )
+  
+  # residuals_year
+  e1 <- (df_year$NewAIDS_sim    - df_year$NewAIDS_obs)    / mean(df_year$NewAIDS_obs)
+  e2 <- (df_year$AIDSdeaths_sim - df_year$AIDSdeaths_obs) / mean(df_year$AIDSdeaths_obs) 
+  e3 <- (df_year$NewInf_sim     - df_year$NewInf_obs)     / mean(df_year$NewInf_obs)
+
+  
+  rmse_newAIDS[i]   <- sqrt(mean(e1^2, na.rm = TRUE))
+  rmse_AIDSdeath[i] <- sqrt(mean(e2^2, na.rm=TRUE))
+  rmse_newInf[i]    <- sqrt(mean(e3^2, na.rm = TRUE))
+}
+
+# Minimax criterion across the three outcomes
+rmse_max <- pmax(rmse_newInf)
+
+best_idx <- which.min(rmse_max)
+
+best_idx
+rmse_max[best_idx]
+c(
+  NewAIDS   = rmse_newAIDS[best_idx],
+  AIDSdeath = rmse_AIDSdeath[best_idx],
+  NewInf    = rmse_newInf[best_idx]
+)
+
+best_params <- Params_all[, best_idx]
+best_params
+ECM  <- rmse_newAIDS^2
+ECM2 <- rmse_AIDSdeath^2
+ECM3 <- rmse_newInf^2
+
+```
+
+```{r}
+
+best_sim_week  <- all_trajs[[best_idx]]
+best_sim_year  <- sim_weekly_to_yearly(best_sim_week, years = 5L, weeks_per_year = 52L)
+
+plot_df <- obs_year %>%
+  inner_join(best_sim_year, by = "Year") %>%
+  # reshape to long format
+  transmute(
+    Year,
+    NewAIDS_obs,
+    NewAIDS_sim,
+    AIDSdeaths_obs,
+    AIDSdeaths_sim,
+    NewInf_obs,
+    NewInf_sim
+  ) %>%
+  pivot_longer(
+    cols = -Year,
+    names_to = c("outcome", "type"),
+    names_pattern = "(.*)_(obs|sim)$",
+    values_to = "value"
+  ) %>%
+  mutate(
+    outcome = case_when(
+      outcome == "NewAIDS"    ~ "New AIDS cases",
+      outcome == "AIDSdeaths" ~ "AIDS deaths",
+      outcome == "NewInf"     ~ "New HIV infections",
+      TRUE                    ~ outcome
+    ),
+    type = ifelse(type == "obs", "Observed", "Simulated")
+  )
+
+ggplot(plot_df, aes(x = Year, y = value, colour = type)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ outcome, scales="free_y", ncol = 1) +
+  labs(
+    x = "Year",
+    y = "Annual count",
+    colour = "",
+    title = "Observed vs simulated (yearly) for best-fitting parameter set"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+best_params
+```
+

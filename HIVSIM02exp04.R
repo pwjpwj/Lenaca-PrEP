@@ -8,6 +8,7 @@ HIVSIM<-function(Age=Age , NoSem=NoSem,
                  PTr=PTr, years=years, PropTR=PropTR, DistEdad=DistEdad,
                  RiskRed=RiskRed){
   
+  NumHSHVIH_NT<-NumHSHVIH-NumHSHVIH*PropTR
   #The list to store the yearly arrays
   Q<-vector("list", years)
   
@@ -47,9 +48,9 @@ HIVSIM<-function(Age=Age , NoSem=NoSem,
     #Defining starting state for the non prep compartments
     
     Compartments[1,j,1,k,1]<-RG[k]*NumHSH*DistEdad[j]#  S0vh[1,j]<-nvh*NumHSH*DistEdad[j]
-    Compartments[1,j,2:7,k,1]<-NumHSHVIH*RG[k]*Rest/6*DistEdad[j]#  I1vh[1,j]<-NumHSHVIH*nvh*Rest/6*DistEdad[j]
-    Compartments[1,j,8:9,k,1]<-NumHSHVIH*I7CD4*RG[k]*DistEdad[j] #I7vh[1,j]<-NumHSHVIH*I7CD4*nvh*DistEdad[j]
-    Compartments[1,j,10,k,1]<-NumHSHVIH*RG[k]*ACD4*DistEdad[j] #AIDSvh[1,j]<-NumHSHVIH*nvh*ACD4*DistEdad[j]
+    Compartments[1,j,2:7,k,1]<-NumHSHVIH_NT*RG[k]*Rest/6*DistEdad[j]#  I1vh[1,j]<-NumHSHVIH*nvh*Rest/6*DistEdad[j]
+    Compartments[1,j,8:9,k,1]<-NumHSHVIH_NT*I7CD4*RG[k]*DistEdad[j] #I7vh[1,j]<-NumHSHVIH*I7CD4*nvh*DistEdad[j]
+    Compartments[1,j,10,k,1]<-NumHSHVIH_NT*RG[k]*ACD4*DistEdad[j] #AIDSvh[1,j]<-NumHSHVIH*nvh*ACD4*DistEdad[j]
       }
    
     

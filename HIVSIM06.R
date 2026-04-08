@@ -6,20 +6,21 @@ HIVSIMPREP<-function(Age=get("Age", globalenv()) , NoSem=get("NoSem", globalenv(
                  W=get("W", globalenv()), m=get("m", globalenv()),
                  mVIH235=get("mVIH235", globalenv()), mVIH35=get("mVIH35", globalenv()),
                  mAIDS=get("mAIDS", globalenv()),
-                 mTr=get("mTr", globalenv()), Cvh=get("Cvh", globalenv()), 
+                 Cvh=get("Cvh", globalenv()), 
                  Ch=get("Ch", globalenv()), Cl=get("Cl", globalenv()), 
                  Cvl=get("Cvl", globalenv()), 
-                 nvh=get("nvh", globalenv()), nh=get("nvh", globalenv()), 
+                 nvh=get("nvh", globalenv()), nh=get("nh", globalenv()), 
                  nl=get("nl", globalenv()), nvl=get("nvl", globalenv()), 
                  B=get("B", globalenv()), I12=get("I12", globalenv()), 
                  I23=get("I23", globalenv()), I34=get("I34", globalenv()), 
-                 I45=get("I45", globalenv()), I55=get("I55", globalenv()), 
+                 I45=get("I45", globalenv()),  
                  I56=get("I56", globalenv()), I67=get("I67", globalenv()), 
                  I78=get("I78", globalenv()), I89=get("I89", globalenv()),
                  PTr=get("PTr", globalenv()), years=get("years", globalenv()),
                  PropTR=get("PropTR", globalenv()),
                  RiskRed=get("RiskRed", globalenv())){
   
+  NumHSHVIH_NT<-NumHSHVIH-NumHSHVIH*PropTR
   #The list to store the yearly matrices
   Q<-vector("list", years)
     # Compartments not on PrEP s
@@ -85,48 +86,48 @@ HIVSIMPREP<-function(Age=get("Age", globalenv()) , NoSem=get("NoSem", globalenv(
     for (j in 1:Age){
     #Defining starting state for the non prep compartments
     S0vh[1,j]<-nvh*NumHSH*DistEdad[j]
-    I1vh[1,j]<-NumHSHVIH*nvh*Rest/6*DistEdad[j]
-    I2vh[1,j]<-NumHSHVIH*nvh*Rest/6*DistEdad[j]
-    I3vh[1,j]<-NumHSHVIH*nvh*Rest/6*DistEdad[j]
-    I4vh[1,j]<-NumHSHVIH*nvh*Rest/6*DistEdad[j]
-    I5vh[1,j]<-NumHSHVIH*nvh*Rest/6*DistEdad[j]
-    I6vh[1,j]<-NumHSHVIH*nvh*Rest/6*DistEdad[j]
-    I7vh[1,j]<-NumHSHVIH*I7CD4*nvh*DistEdad[j]
-    I8vh[1,j]<-NumHSHVIH*I8CD4*nvh*DistEdad[j]
-    AIDSvh[1,j]<-NumHSHVIH*nh*ACD4*DistEdad[j]
+    I1vh[1,j]<-NumHSHVIH_NT*nvh*Rest/6*DistEdad[j]
+    I2vh[1,j]<-NumHSHVIH_NT*nvh*Rest/6*DistEdad[j]
+    I3vh[1,j]<-NumHSHVIH_NT*nvh*Rest/6*DistEdad[j]
+    I4vh[1,j]<-NumHSHVIH_NT*nvh*Rest/6*DistEdad[j]
+    I5vh[1,j]<-NumHSHVIH_NT*nvh*Rest/6*DistEdad[j]
+    I6vh[1,j]<-NumHSHVIH_NT*nvh*Rest/6*DistEdad[j]
+    I7vh[1,j]<-NumHSHVIH_NT*I7CD4*nvh*DistEdad[j]
+    I8vh[1,j]<-NumHSHVIH_NT*I8CD4*nvh*DistEdad[j]
+    AIDSvh[1,j]<-NumHSHVIH_NT*nvh*ACD4*DistEdad[j]
     
     S0h[1,j]<-nh*NumHSH*DistEdad[j]
-    I1h[1,j]<-NumHSHVIH*nh*Rest/6*DistEdad[j]
-    I2h[1,j]<-NumHSHVIH*nh*Rest/6*DistEdad[j]
-    I3h[1,j]<-NumHSHVIH*nh*Rest/6*DistEdad[j]
-    I4h[1,j]<-NumHSHVIH*nh*Rest/6*DistEdad[j]
-    I5h[1,j]<-NumHSHVIH*nh*Rest/6*DistEdad[j]
-    I6h[1,j]<-NumHSHVIH*nh*Rest/6*DistEdad[j]
-    I7h[1,j]<-NumHSHVIH*nh*I7CD4*DistEdad[j]
-    I8h[1,j]<-NumHSHVIH*nh*I8CD4*DistEdad[j]
-    AIDSh[1,j]<-NumHSHVIH*nh*ACD4*DistEdad[j]
+    I1h[1,j]<-NumHSHVIH_NT*nh*Rest/6*DistEdad[j]
+    I2h[1,j]<-NumHSHVIH_NT*nh*Rest/6*DistEdad[j]
+    I3h[1,j]<-NumHSHVIH_NT*nh*Rest/6*DistEdad[j]
+    I4h[1,j]<-NumHSHVIH_NT*nh*Rest/6*DistEdad[j]
+    I5h[1,j]<-NumHSHVIH_NT*nh*Rest/6*DistEdad[j]
+    I6h[1,j]<-NumHSHVIH_NT*nh*Rest/6*DistEdad[j]
+    I7h[1,j]<-NumHSHVIH_NT*nh*I7CD4*DistEdad[j]
+    I8h[1,j]<-NumHSHVIH_NT*nh*I8CD4*DistEdad[j]
+    AIDSh[1,j]<-NumHSHVIH_NT*nh*ACD4*DistEdad[j]
     
     S0l[1,j]<-nl*NumHSH*DistEdad[j]
-    I1l[1,j]<-NumHSHVIH*nl*Rest/6*DistEdad[j]
-    I2l[1,j]<-NumHSHVIH*nl*Rest/6*DistEdad[j]
-    I3l[1,j]<-NumHSHVIH*nl*Rest/6*DistEdad[j]
-    I4l[1,j]<-NumHSHVIH*nl*Rest/6*DistEdad[j]
-    I5l[1,j]<-NumHSHVIH*nl*Rest/6*DistEdad[j]
-    I6l[1,j]<-NumHSHVIH*nl*Rest/6*DistEdad[j]
-    I7l[1,j]<-NumHSHVIH*nl*I7CD4*DistEdad[j]
-    I8l[1,j]<-NumHSHVIH*nl*I8CD4*DistEdad[j]
-    AIDSl[1,j]<-NumHSHVIH*nl*ACD4*DistEdad[j]
+    I1l[1,j]<-NumHSHVIH_NT*nl*Rest/6*DistEdad[j]
+    I2l[1,j]<-NumHSHVIH_NT*nl*Rest/6*DistEdad[j]
+    I3l[1,j]<-NumHSHVIH_NT*nl*Rest/6*DistEdad[j]
+    I4l[1,j]<-NumHSHVIH_NT*nl*Rest/6*DistEdad[j]
+    I5l[1,j]<-NumHSHVIH_NT*nl*Rest/6*DistEdad[j]
+    I6l[1,j]<-NumHSHVIH_NT*nl*Rest/6*DistEdad[j]
+    I7l[1,j]<-NumHSHVIH_NT*nl*I7CD4*DistEdad[j]
+    I8l[1,j]<-NumHSHVIH_NT*nl*I8CD4*DistEdad[j]
+    AIDSl[1,j]<-NumHSHVIH_NT*nl*ACD4*DistEdad[j]
     
     S0vl[1,j]<-nvl*NumHSH*DistEdad[j]
-    I1vl[1,j]<-NumHSHVIH*nvl*Rest/6*DistEdad[j]
-    I2vl[1,j]<-NumHSHVIH*nvl*Rest/6*DistEdad[j]
-    I3vl[1,j]<-NumHSHVIH*nvl*Rest/6*DistEdad[j]
-    I4vl[1,j]<-NumHSHVIH*nvl*Rest/6*DistEdad[j]
-    I5vl[1,j]<-NumHSHVIH*nvl*Rest/6*DistEdad[j]
-    I6vl[1,j]<-NumHSHVIH*nvl*Rest/6*DistEdad[j]
-    I7vl[1,j]<-NumHSHVIH*nvl*I7CD4*DistEdad[j]
-    I8vl[1,j]<-NumHSHVIH*nvl*I8CD4*DistEdad[j]
-    AIDSvl[1,j]<-NumHSHVIH*nvl*ACD4*DistEdad[j]
+    I1vl[1,j]<-NumHSHVIH_NT*nvl*Rest/6*DistEdad[j]
+    I2vl[1,j]<-NumHSHVIH_NT*nvl*Rest/6*DistEdad[j]
+    I3vl[1,j]<-NumHSHVIH_NT*nvl*Rest/6*DistEdad[j]
+    I4vl[1,j]<-NumHSHVIH_NT*nvl*Rest/6*DistEdad[j]
+    I5vl[1,j]<-NumHSHVIH_NT*nvl*Rest/6*DistEdad[j]
+    I6vl[1,j]<-NumHSHVIH_NT*nvl*Rest/6*DistEdad[j]
+    I7vl[1,j]<-NumHSHVIH_NT*nvl*I7CD4*DistEdad[j]
+    I8vl[1,j]<-NumHSHVIH_NT*nvl*I8CD4*DistEdad[j]
+    AIDSvl[1,j]<-NumHSHVIH_NT*nvl*ACD4*DistEdad[j]
     
     Tr[1,j]<-NumHSHVIH*PropTR*DistEdad[j]
     }
@@ -252,10 +253,10 @@ for (t in 1:years){
       PrevInfvl<-sum(I1vl[i-1,], I2vl[i-1,], I3vl[i-1,], I4vl[i-1,], I5vl[i-1,], I6vl[i-1,], I7vl[i-1,], I8vl[i-1,], AIDSvl[i-1,])/sum(S0vl[i-1,], I1vl[i-1,], I2vl[i-1,], I3vl[i-1,], I4vl[i-1,], I5vl[i-1,], I6vl[i-1,], I7vl[i-1,], I8vl[i-1,], AIDSvl[i-1,])
       
       #Probability that a partner will be in a specific group
-      Gvh<-(Cvh*nvh)/(Cvh*nvh+Ch*nh+Cl+nl*Cvl+nvl)
-      Gh<-(Ch*nh)/(Cvh*nvh+Ch*nh+Cl+nl*Cvl+nvl)
-      Gl<-(Cl*nl)/(Cvh*nvh+Ch*nh+Cl+nl*Cvl+nvl)
-      Gvl<-(Cvl*nvl)/(Cvh*nvh+Ch*nh+Cl+nl*Cvl+nvl)
+      Gvh<-(Cvh*nvh)/(Cvh*nvh+Ch*nh+Cl*nl+Cvl*nvl)
+      Gh<-(Ch*nh)/(Cvh*nvh+Ch*nh+Cl*nl+Cvl*nvl)
+      Gl<-(Cl*nl)/(Cvh*nvh+Ch*nh+Cl*nl+Cvl*nvl)
+      Gvl<-(Cvl*nvl)/(Cvh*nvh+Ch*nh+Cl*nl+Cvl*nvl)
       
       #Probability that the partner is infectious
       P<-Gvh*PrevInfvh+Gh*PrevInfh+Gl*PrevInfl+Gvl*PrevInfvl
@@ -397,7 +398,7 @@ for (t in 1:years){
       
       #New HIV infections
       NewHIV[i,j]<-sum(S0vh[i-1,j]*Lvh, S0h[i-1,j]*Lh, S0l[i-1,j]*Ll, S0vl[i-1,j]*Lvl, S0pvh[i-1,j]*Lvh*RiskRed, 
-                       S0pvh[i-1,j]*Lh*RiskRed)
+                       S0ph[i-1,j]*Lh*RiskRed)
       
       #New HIV treated
     }

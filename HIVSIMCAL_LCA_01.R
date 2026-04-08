@@ -1,15 +1,7 @@
-HIVSIMCAL<-function(repeats){
+HIVSIMCAL<-function(repeats, m, DistEdad){
 # Dinamic HIV transmission model in HSH in Spain
 ##Values
 
-DistEdad<-vector(length=85)
-DistEdad[1:10]<-0.114106384/10
-DistEdad[11:20]<-0.116645332/10
-DistEdad[21:30]<-0.281029342/10
-DistEdad[31:40]<-0.30552628/10
-DistEdad[41:50]<-0.112127906/10
-DistEdad[51:85]<-0.070564755/35
-  
 Age<-85
 years<-5
 NoSem<-52
@@ -17,7 +9,7 @@ R<-vector("list", repeats)
 Params<-matrix(data=0, nrow=32, ncol=repeats)
 
 for (k in 1:repeats){
-NumHSHVIH<-rnorm(1,33558, 4000)
+NumHSHVIH<-rnorm(1,80575, 10000)
 Params[1,k]<-NumHSHVIH
 
 NumHSH<-892955-NumHSHVIH#(INE)
@@ -42,12 +34,12 @@ Params[7,k]<-G
 Woff<-0/52 #Proportion of people who go off PrEP 30% anually
 W<-0/52    #Proportion of people who go on PrEP 30% anually
 #L<-0.05/52   #Force of infection
-m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")  #Mortality general population
-mVIH235<-invbeta(0.00012692, 0.000061) #Alejos et al Medicine 2016
+  #Mortality general population
+mVIH235<-invbeta(0.0002246, 0.0002246) #Alejos et al Medicine 2016
 Params[8,k]<-mVIH235
-mVIH35<-invbeta(0.0000538, 0.000048)   #Alejos et al Medicine 2016
+mVIH35<-invbeta(0.0000594, 0.0000594)   #Alejos et al Medicine 2016
 Params[9,k]<-mVIH35
-mAIDS<-invbeta(0.04/52, 0.04/52)    #Parastu et al PLOSone 2018
+mAIDS<-invbeta(0.0006632, 0.0006632)    #Parastu et al PLOSone 2018
 Params[10,k]<-mAIDS
 Cvh<-invgamma(52.5/52, 52.5/52) #Partner change rate in the very high group 18-123/year Nichols et al. 2016
 Params[11,k]<-Cvh
@@ -94,7 +86,7 @@ Params[30,k]<-PTr[1]
 Params[31,k]<-PTr[2]
 Params[32,k]<-PTr[3]
 
-RiskRed<-0.86
+#RiskRed<-0.86
 
 #200-500->500
 
@@ -105,7 +97,7 @@ RiskRed<-0.86
 Q<-HIVSIM(Age, NoSem, NumHSH, NumHSHVIH, 
           ACD4, I8CD4, I7CD4, Rest, 
           G, Woff, W, 
-          m, mAIDS, mVIH235, mVIH35, mTr, 
+          m, mAIDS, mVIH235, mVIH35, 
           Cvh, Ch, Cl, Cvl, 
           nvh, nh, nl, nvl, B,
           I12, I23, I34, 
@@ -122,7 +114,7 @@ QQ<-array(unlist(Q), dim=c(52,6291,20))
 Q1_list <- vector("list", years)
 for (t in 1:years){
   Q1_list[[t]]<-as.data.frame(cbind(QQ[1:52,1,t],rowSums(QQ[1:52,2:511,t]),rowSums(QQ[1:52,512:1021,t]),rowSums(QQ[1:52,1022:1531,t]), rowSums(QQ[,1532:2041,t]), rowSums(QQ[,2042:2551,t]), rowSums(QQ[,2552:3061,t]), rowSums(QQ[,3062:3571,t]), rowSums(QQ[,3572:4081,t]), rowSums(QQ[,4082:4591,t]), rowSums(QQ[,4592:5101,t]), rowSums(QQ[,5102:5611,t]),
-                                    rowSums(QQ[,5611:5696,t]), rowSums(QQ[,5697:5780,t]), rowSums(QQ[,5781:5865,t]),
+                                    rowSums(QQ[,5612:5696,t]), rowSums(QQ[,5697:5780,t]), rowSums(QQ[,5781:5865,t]),
                                     rowSums(QQ[,5866:5950,t]), rowSums(QQ[,5951:6035,t]), rowSums(QQ[,6036:6120,t]), rowSums(QQ[,6121:6206,t]), rowSums(QQ[,6207:6291,t])))
 }
 

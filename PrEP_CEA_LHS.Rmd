@@ -1,7 +1,7 @@
 ---
 title: "Coste-eficacia de PrEP en España"
 author: "Philip Wikman"
-date: "15 de mayo de 2019"
+date: "sys.date()"
 output: html_document
 ---
 
@@ -18,7 +18,7 @@ set.seed(123)
 # Dinamic HIV transmission model in HSH in Spain
 ##Values
 ```{r}
-load("BestParam_LCA_07a")
+load("Best_theta_Param")
 DistEdad<-vector(length=85)
 DistEdad[1:10]<-0.114106384/10
 DistEdad[11:20]<-0.116645332/10
@@ -32,47 +32,42 @@ years<-20
 
 
 NoSem<-52
-NumHSH<-892955-Bestparam[1] #(INE)
-NumHSHVIH<-Bestparam[1]  #Encuesta hospitalaria
+NumHSH<-892955-best_theta[1] #(INE)
+NumHSHVIH<-best_theta[1]  #Encuesta hospitalaria
 
-ACD4<-Bestparam[2] #Distribucion de los pacientes por rango de CD4 <200
-I8CD4<-Bestparam[3] #200-350
-I7CD4<-Bestparam[4] #350-500
-Rest<-Bestparam[5]   #>500
-PropTR<-Bestparam[6]
+ACD4<-best_theta[2] #Distribucion de los pacientes por rango de CD4 (AIDS + CD4 <200, merged)
+I7CD4<-best_theta[3] #200-350
+Rest<-best_theta[4]   #>350
+PropTR<-best_theta[5]
 
 #Values 
-G<-Bestparam[7]  #Population growth rate 1/1000 anually
+G<-best_theta[6]  #Population growth rate 1/1000 anually
 
 m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")  #Mortality general population
-mVIH235<-Bestparam[8] #Alejos et al Medicine 2016
-mVIH35<-Bestparam[9]   #Alejos et al Medicine 2016
-mAIDS<-Bestparam[10]  #Parastu et al PLOSone 2018
-Cvh<-Bestparam[11] #Partner change rate in the very high group 18-123/year Nichols et al. 2016
-Ch<-Bestparam[12]     #Partner change rate in the high group 5-18/year Nichols et al. 2016
-Cl<-Bestparam[13]   #Partner change rate in the low group 0.5-5/year Nichols et al. 2016
-Cvl<-Bestparam[14]  #Partner change rate in the very low group 0.04-0.5/year Nichols et al. 2016
-nvh<-Bestparam[15]     #Proportion of the total population in each group 5-15% Nichols et al. 2016
-nh<-Bestparam[16]     #30-50% Nichols et al. 2016
-nl<-Bestparam[17]     #10-35% Nichols et al. 2016
-nvl<-Bestparam[18]    #4-46%
+mVIH235<-best_theta[7] #Mortality CD4 200-350; Alejos et al Medicine 2016
+mVIH35<-best_theta[8]  #Mortality CD4 >350; Alejos et al Medicine 2016
+mAIDS<-best_theta[9]   #Parastu et al PLOSone 2018
+Cvh<-best_theta[10] #Partner change rate in the very high group 18-123/year Nichols et al. 2016
+Ch<-best_theta[11]     #Partner change rate in the high group 5-18/year Nichols et al. 2016
+Cl<-best_theta[12]   #Partner change rate in the low group 0.5-5/year Nichols et al. 2016
+Cvl<-best_theta[13]  #Partner change rate in the very low group 0.04-0.5/year Nichols et al. 2016
+nvh<-best_theta[14]     #Proportion of the total population in each group 5-15% Nichols et al. 2016
+nh<-best_theta[15]     #30-50% Nichols et al. 2016
+nl<-best_theta[16]     #10-35% Nichols et al. 2016
+nvl<-best_theta[17]    #4-46%
 
-B<-Bestparam[19]  #per partnership transmissibility Nichols et al 2016.
-I12<-Bestparam[20] #1 month duration in stage 1 of HIV infection
-I23<-Bestparam[21] #1 month duration in stage 2 of HIV infection
-I34<-Bestparam[22] #1 month duration in stage 3 of HIV infection
-I45<-Bestparam[23] #3 month duration in stage 4 of HIV infection
-I55<-Bestparam[25] #3 month duration in stage 5 of HIV infection
-I56<-Bestparam[26] #3 month duration in stage 6 of HIV infection
-I67<-Bestparam[27] #Chronic duration in stage 7 of HIV infection
-I78<-Bestparam[28] #Chronic duration in stage 9 of HIV infection
-I89<-Bestparam[29] #Chronic duration in stage 10 of HIV infection
+B<-best_theta[18]  #per partnership transmissibility Nichols et al 2016.
+I12<-best_theta[19] #1 month duration in stage 1 of HIV infection
+I23<-best_theta[20] #1 month duration in stage 2 of HIV infection
+I34<-best_theta[21] #1 month duration in stage 3 of HIV infection
+I45<-best_theta[22] #3 month duration in stage 4 of HIV infection
+I56<-best_theta[23] #3 month duration in stage 5 of HIV infection
+I67<-best_theta[24] #Chronic duration in stage 6 of HIV infection
+I78<-best_theta[25] #Chronic duration in stage 7 of HIV infection
 
-PTr<-c(Bestparam[30],Bestparam[31],Bestparam[32]) #Nuñez et al AIDS 2018     
-                                            #200-500->500
-
-Woff<-0.014/52 #Proportion of people who go off PrEP 
-W<-0.089/52    #Proportion of people who go on PrEP 
+PTr<-c(best_theta[26],best_theta[27],best_theta[28]) #Nuñez et al AIDS 2018
+Woff      <- 0.0038 #Proportion of people who go off PrEP. SiPrEP 15% anual, p=1-e^-rt
+W<-0.00192    #Proportion of people who go on PrEP. SiPrEP describe 5000-7000 nuevos anuales y eso supone una probabilidad alrededor de 0.1 anual.
 ```
 
 
@@ -83,20 +78,17 @@ W<-0.089/52    #Proportion of people who go on PrEP
 ```{r}
 source("HIVSIM05.R") #(With calibration changes and PrEP)
 source("QALYCostP.R")
-Woff <- 0.014/52   #Proportion of people who go off PrEP 
-W <- 0.089/52    #Proportion of people who go on PrEP
 RiskRed<-1-0.86 # 0.86 for TDF, 0.96 for LCA
 
 QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
-                 ACD4, I8CD4, I7CD4, Rest, 
+                 ACD4, I7CD4, Rest, 
                  G, Woff, W, 
-                 m, mAIDS, mVIH235, mVIH35, mTr, 
+                 m, mVIH235, mVIH35, mAIDS,
                  Cvh, Ch, Cl, Cvl, 
                  nvh, nh, nl, nvl, B,
                  I12, I23, I34, 
-                 I45, I55, 
-                 I56, I67, 
-                 I78, I89, PTr, years)
+                 I45, I56, I67, 
+                 I78, PTr, years)
 
 head(QP[[3]][1:9])
 QQP<-array(unlist(QP), dim=c(52,ncol(QP[[1]]),years))
@@ -123,16 +115,15 @@ for (t in 1:years) {
       Inf5       = rowSums(Qt[,2552:3061]),
       Inf6       = rowSums(Qt[,3062:3571]),
       Inf7       = rowSums(Qt[,3572:4081]),
-      Inf8       = rowSums(Qt[,4082:4591]),
-      AIDS       = rowSums(Qt[,4592:5101]),
-      Treated    = rowSums(Qt[,5102:5186]),
-      Dead       = rowSums(Qt[,5187:5271]),
-      NewAIDS    = rowSums(Qt[,5272:5356]),
-      FI_vh      = rowSums(Qt[,5357:5441]),
-      FI_h       = rowSums(Qt[,5442:5526]),
-      FI_l       = rowSums(Qt[,5527:5611]),
-      FI_vl      = rowSums(Qt[,5612:5696]),
-      NewHIV     = rowSums(Qt[,5697:5781])
+      AIDS       = rowSums(Qt[,4082:4591]),
+      Treated    = rowSums(Qt[,4592:4676]),
+      Dead       = rowSums(Qt[,4677:4761]),
+      NewAIDS    = rowSums(Qt[,4762:4846]),
+      FI_vh      = rowSums(Qt[,4847:4931]),
+      FI_h       = rowSums(Qt[,4932:5016]),
+      FI_l       = rowSums(Qt[,5017:5101]),
+      FI_vl      = rowSums(Qt[,5102:5186]),
+      NewHIV     = rowSums(Qt[,5187:5271])
     )
   )
 }
@@ -152,7 +143,6 @@ plot1<-ggplot(Q1P, aes(Weeks))+
     geom_line(aes(y=Inf5, color="stage5"))+
     geom_line(aes(y=Inf6, color="stage6"))+
     geom_line(aes(y=Inf7, color="stage7"))+
-    geom_line(aes(y=Inf8, color="stage8"))+
     geom_line(aes(y=AIDS, color="AIDS"))+
     geom_line(aes(y=Treated, color="Treated"))+
     theme_classic()
@@ -178,7 +168,7 @@ ggplot(Q2P_year, aes(x = Year, y = NewHIV)) +
 ```{r}
 Total <- sum(Q1P$NewHIV, na.rm = TRUE)
 PY <- sum(Q1P$Susceptible + Q1P$PrEP, na.rm = TRUE) / 52
-incidence <- Total / PY * 100
+incidence <- Total / PY * 1000
 Total
 incidence
 ```
@@ -192,7 +182,7 @@ plot3
 ```
 ##Muertos
 ```{r}
-Q4P<-as.data.frame(cbind(Q1P[,1], Q1P[,14]))
+Q4P<-as.data.frame(cbind(Q1P[,1], Q1P[,13]))
 Q4P1<-Q4P[c(52*c(1:40)),]
 #Q41c<-cbind(Q4P1,Q41[,2] )
 plot4<-ggplot(Q4P, aes(V1/52))+
@@ -220,7 +210,6 @@ for (i in 1:length(x)){QALYsP<-QALYsP+QalyCalc(x[,i],w=WM350)}
 QALYsP<-QALYsP+QalyCalc(Q1P[,"Inf1"],w=WHIV)
 QALYsP<-QALYsP+QalyCalc(Q1P[,"Susceptible"],w=WSusceptible)
 QALYsP<-QALYsP+QalyCalc(Q1P[,"PrEP"],w=WSusceptible)
-QALYsP<-QALYsP+QalyCalc(Q1P[,"Inf8"],w=WHIV)
 QALYsP<-QALYsP+QalyCalc(Q1P[,"AIDS"],w=WAIDS)
 QALYsP<-QALYsP+QalyCalc(Q1P[,"Treated"],w=WTREAT)
 
@@ -265,37 +254,60 @@ CostsP
 ```{r}
 source("HIVSIM05.R") # (With calibration changes and PrEP)
 source("QALYCostP.R")
-Woff<-0.014/52 # Proportion of people who go off PrEP 
-W<-0.089/52    # Proportion of people who go on PrEP 
+
 RiskRed<-1-0.96 # 0.86 for TDF, 0.96 for LCA
 
 QLCA<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
-                 ACD4, I8CD4, I7CD4, Rest, 
+                 ACD4, I7CD4, Rest, 
                  G, Woff, W, 
-                 m, mAIDS, mVIH235, mVIH35, mTr, 
+                 m, mVIH235, mVIH35, mAIDS,
                  Cvh, Ch, Cl, Cvl, 
                  nvh, nh, nl, nvl, B,
                  I12, I23, I34, 
-                 I45, I55, 
-                 I56, I67, 
-                 I78, I89, PTr, years, RiskRed=1-0.96)
+                 I45, I56, I67, 
+                 I78, PTr, years, RiskRed=1-0.96)
 
 head(QLCA[[3]][1:9])
-QQLCA<-array(unlist(QLCA), dim=c(52,5781,years))
+QQLCA<-array(unlist(QLCA), dim=c(52,5271,years))
 ```
 
 ###Arranging the array into a megamatrix
 ```{r, echo=FALSE}
-Q1LCA<-NULL
-for (t in 1:years){
-Q1LCA<-rbind(Q1LCA, as.data.frame(cbind(QQLCA[1:52,1,t],rowSums(QQLCA[1:52,2:341,t]),rowSums(QQLCA[1:52,342:511,t]),rowSums(QQLCA[1:52,512:1021,t]), rowSums(QQLCA[,1022:1531,t]), rowSums(QQLCA[,1532:2041,t]), rowSums(QQLCA[,2042:2551,t]), rowSums(QQLCA[,2552:3061,t]), rowSums(QQLCA[,3062:3571,t]), rowSums(QQLCA[,3572:4081,t]), rowSums(QQLCA[,4082:4591,t]), rowSums(QQLCA[,4592:5101,t]), rowSums(QQLCA[,5102:5186,t]), rowSums(QQLCA[,5187:5271,t]), rowSums(QQLCA[,5272:5356,t]), rowSums(QQLCA[,5357:5441,t]), rowSums(QQLCA[,5442:5526,t]), rowSums(QQLCA[,5527:5611,t]), rowSums(QQLCA[,5612:5696,t]), rowSums(QQLCA[,5697:5781,t]))))
+Q1LCA <- NULL
+
+for (t in 1:years) {
+
+  Qt <- QQLCA[1:52, , t]
+
+  Q1LCA <- rbind(
+    Q1LCA,
+    data.frame(
+      Weeks      = Qt[, 1],
+      Susceptible= rowSums(Qt[,   2:341]),
+      PrEP       = rowSums(Qt[, 342:511]),
+      Inf1       = rowSums(Qt[, 512:1021]),
+      Inf2       = rowSums(Qt[,1022:1531]),
+      Inf3       = rowSums(Qt[,1532:2041]),
+      Inf4       = rowSums(Qt[,2042:2551]),
+      Inf5       = rowSums(Qt[,2552:3061]),
+      Inf6       = rowSums(Qt[,3062:3571]),
+      Inf7       = rowSums(Qt[,3572:4081]),
+      AIDS       = rowSums(Qt[,4082:4591]),
+      Treated    = rowSums(Qt[,4592:4676]),
+      Dead       = rowSums(Qt[,4677:4761]),
+      NewAIDS    = rowSums(Qt[,4762:4846]),
+      FI_vh      = rowSums(Qt[,4847:4931]),
+      FI_h       = rowSums(Qt[,4932:5016]),
+      FI_l       = rowSums(Qt[,5017:5101]),
+      FI_vl      = rowSums(Qt[,5102:5186]),
+      NewHIV     = rowSums(Qt[,5187:5271])
+    )
+  )
 }
+
+Q1LCA$Weeks <- seq_len(nrow(Q1LCA))
 ```
 
-```{r}
-colnames(Q1LCA)<-c("Weeks", "Susceptible","PrEP", "Inf1", "Inf2", "Inf3", "Inf4", "Inf5", "Inf6", "Inf7", "Inf8", "AIDS", "Treated", "Dead")
-Q1LCA$Weeks<-1:(years*52)
-```
 
 ##Evolucion estados individuales 2 ano
 ```{r}
@@ -317,7 +329,7 @@ plot1
 
 ##Número total de VIH sin tto
 ```{r}
-Q2LCA<-as.data.frame(cbind(Q1LCA[,1], rowSums(Q1LCA[,4:12])))
+Q2LCA<-as.data.frame(cbind(Q1LCA[,1], rowSums(Q1LCA[,4:11])))
 plot2<-ggplot(Q2LCA, aes(V1))+
     geom_line(aes(y=V2, color="red"))
     #coord_cartesian(ylim =c(0, 1000), xlim = c(0, 520))
@@ -326,8 +338,23 @@ plot2
 ##Nuevas infecciones
 ### Total de nuevas infecciones
 ```{r}
-Total<-sum(Q1LCA[20])
-incidence<-sum(Q1LCA[20])/(NumHSH*years)*100
+Q2LCA <- data.frame(Weeks = Q1LCA$Weeks, NewHIV = Q1LCA$NewHIV)
+
+Q2LCA_year <- Q2LCA |>
+  transform(Year = ((Weeks - 1) %/% 52) + 1) |>
+  aggregate(NewHIV ~ Year, data = _, sum)
+
+ggplot(Q2LCA_year, aes(x = Year, y = NewHIV)) +
+  geom_point(size = 2) +
+  geom_line() +
+  ylim(0,10000)+
+  theme_classic()
+```
+### Total de nuevas infecciones
+```{r}
+Total <- sum(Q1LCA$NewHIV, na.rm = TRUE)
+PY <- sum(Q1LCA$Susceptible + Q1LCA$PrEP, na.rm = TRUE) / 52
+incidence <- Total / PY * 1000
 Total
 incidence
 ```
@@ -341,12 +368,11 @@ plot3
 ```
 ##Muertos
 ```{r}
-Q4LCA<-as.data.frame(cbind(Q1LCA[,1], Q1LCA[,14]))
+Q4LCA<-as.data.frame(cbind(Q1LCA[,1], Q1LCA[,13]))
 #Q4P1<-Q4P[c(52*c(1:20)),]
 #Q41c<-cbind(Q4P1,Q41[,2] )
 plot4<-ggplot(Q4LCA, aes(V1/52))+
     geom_line(aes(y=V2, colour="with PrEP"))+
-    #geom_line(aes(y=Q41[,2], colour="No PrEP"))+
     theme_classic()+
     scale_color_manual(name="Intervention", values = c("with PrEP" = "darkblue", "No PrEP" = "red"))
     #coord_cartesian(ylim =c(0, 100), xlim = c(0, 520))
@@ -369,7 +395,6 @@ for (i in 1:length(x)){QALYsLCA<-QALYsLCA+QalyCalc(x[,i],w=WM350)}
 QALYsLCA<-QALYsLCA+QalyCalc(Q1LCA[,"Inf1"],w=WHIV)
 QALYsLCA<-QALYsLCA+QalyCalc(Q1LCA[,"Susceptible"],w=WSusceptible)
 QALYsLCA<-QALYsLCA+QalyCalc(Q1LCA[,"PrEP"],w=WSusceptible)
-QALYsLCA<-QALYsLCA+QalyCalc(Q1LCA[,"Inf8"],w=WHIV)
 QALYsLCA<-QALYsLCA+QalyCalc(Q1LCA[,"AIDS"],w=WAIDS)
 QALYsLCA<-QALYsLCA+QalyCalc(Q1LCA[,"Treated"],w=WTREAT)
 
@@ -381,18 +406,9 @@ QALYsLCA
 ```{r}
 Treatcost<-188.54
 AIDScost<-19000/52
-PrEPcost<- 175 # TDF/FTC 26.94, LCA 898.82  LCA1 390, LCA 2 200, LCA 3 100
+PrEPcost<- 898.82 # TDF/FTC 26.94, LCA 898.82  LCA_2 390, LCA 3 195, LCA 4 98
+#LCA 5 49, LCA 6 28.95, LCAMAX 30.5
 
-#AIDScostFinalP<-sum(Q1LCA[,"AIDS"])*AIDScost
-#TreatmentNotAIDSFinalP<-sum(Q1LCA[,"Treated"])*Treatcost
-#TotalPrEPcost<-sum(Q1LCA[,"PrEP"])*PrEPcost
-
-#AIDScostFinalP
-#TreatmentNotAIDSFinalP
-#TotalPrEPcost
-
-#CostsP<-sum(Q1LCA[,"AIDS"])*AIDScost+sum(Q1LCA[,"Treated"])*Treatcost+sum(Q1LCA[,"PrEP"])*PrEPcost
-#CostsP
 
 CostsLCA<-0
 CostsLCA1<-0
@@ -419,7 +435,7 @@ QALY<-cbind(QALYsLCA, QALYsP, QalyDiff)
 ICER<-CostDiff/QalyDiff
 Result<-list(Cost, QALY, ICER)
 names(Result)<-c("Cost", "QALY", "ICER")
-save(Result, file="Result_TDFLCA_04")
+save(Result, file="Result_TDFLCA_LHS_2")
 Result  # GDP per capita of Spain 33895.59€ https://www.statista.com/statistics/263773/gross-domestic-product-gdp-per-capita-in-spain/
 
 ```
@@ -427,7 +443,7 @@ Result  # GDP per capita of Spain 33895.59€ https://www.statista.com/statistic
 
 ```{r}
 rm(Result)
-load("Result_TDFLCA_04")
+load("Result_TDFLCA_LHS_2")
 TDFLCA<-Result
 rm(Result)
 ```
@@ -458,8 +474,71 @@ g1<-ggplot(table4, aes(x=QALY_difference, y=COST_difference, color=Intervention)
 
 #Statista. Gross domestic product (GDP) per capita in Spain 2029 [Internet]. 2024 Dec [cited 2025 #Feb 9]. Available from: https://www.statista.com/statistics/263773/gross-domestic-product-gdp-per-c#apita-in-spain/           
 
-#tiff("CEA.tiff", width=16, height=12, units="cm", res=300)
+#tiff("CEA_1.tiff", width=16, height=12, units="cm", res=300)
 g1
 #dev.off
 
+```
+
+##########################################################################
+##########################################################################
+# Price-seeking analysis: maximum cost-effective price for lenacapavir
+
+```{r}
+# Since CostCalc is linear in C, we can express the discounted PrEP
+# person-weeks as a single scalar and solve for the threshold price.
+# ICER = WTP  =>  (CostsLCA(price) - CostsP) / QalyDiff = WTP
+# Rearranging: price = (WTP * QalyDiff + CostsP - CostsLCA1 - CostsLCA2) /
+#                       discounted_PrEP_person_weeks
+
+discounted_prep_pw <- CostCalc(Q1LCA[, "PrEP"], C = 1)
+
+wtp_thresholds <- c(
+  `1x GDP/cap`  = 33895.59
+)
+
+threshold_prices <- sapply(wtp_thresholds, function(wtp) {
+  (wtp * QalyDiff + CostsP - CostsLCA1 - CostsLCA2) / discounted_prep_pw
+})
+
+price_df <- data.frame(
+  WTP_threshold   = names(wtp_thresholds),
+  WTP_value       = unname(wtp_thresholds),
+  Max_weekly_price = unname(threshold_prices),
+  Max_6monthsdose_price = unname(threshold_prices) * 26,
+  Max_annual_price = unname(threshold_prices) * 52
+)
+
+price_df
+```
+
+```{r}
+# Visualise ICER as a function of LCA weekly price
+# Zoom to a range around the threshold so the crossing point is visible
+price_max  <- ceiling(threshold_prices * 3)
+price_grid <- seq(0, price_max, length.out = 200)
+
+icer_by_price <- sapply(price_grid, function(p) {
+  cost_lca_at_p <- CostsLCA1 + CostsLCA2 + discounted_prep_pw * p
+  (cost_lca_at_p - CostsP) / QalyDiff
+})
+
+icer_df <- data.frame(Weekly_price = price_grid, ICER = icer_by_price)
+
+ggplot(icer_df, aes(x = Weekly_price, y = ICER)) +
+  geom_line(linewidth = 0.8) +
+  geom_hline(yintercept = wtp_thresholds, linetype = "dashed",
+             color = "forestgreen") +
+  geom_vline(xintercept = threshold_prices, linetype = "dotted",
+             color = "forestgreen") +
+  annotate("text",
+           x = threshold_prices + price_max * 0.05,
+           y = wtp_thresholds * 1.15,
+           label = paste0(names(wtp_thresholds),
+                          "\n(", round(threshold_prices, 1), " €/wk)"),
+           hjust = 0, size = 3.2, color = "forestgreen") +
+  labs(x = "Lenacapavir weekly cost (€)",
+       y = "ICER (€/QALY)",
+       title = "ICER vs lenacapavir price (LCA vs TDF/FTC)") +
+  theme_classic()
 ```

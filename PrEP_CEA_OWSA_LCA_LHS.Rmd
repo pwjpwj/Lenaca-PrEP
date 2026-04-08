@@ -1,0 +1,2211 @@
+---
+title: "Coste-eficacia de PrEP en España"
+author: "Philip Wikman"
+date: "15 de mayo de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(forcats)
+source("QALYCostP.R")
+source("HIVSIM05.R")
+source("QalyCalc.R")
+source("CostCalc.R")
+set.seed(123)
+
+```
+
+# Load best fit parameters
+```{r}
+load("Best_theta_Param")
+```
+
+# OWA sensitivity analysis
+```{r}
+
+DistEdad<-vector(length=85)
+DistEdad[1:10]<-0.114106384/10
+DistEdad[11:20]<-0.116645332/10
+DistEdad[21:30]<-0.281029342/10
+DistEdad[31:40]<-0.30552628/10
+DistEdad[41:50]<-0.112127906/10
+DistEdad[51:85]<-0.070564755/35
+
+Age<-85
+years<-20
+
+NoSem<-52
+NumHSH<-892955-best_theta[1] #(INE)
+NumHSHVIH<-best_theta[1]  #Encuesta hospitalaria
+
+ACD4<-best_theta[2] #Distribucion de los pacientes por rango de CD4 (AIDS + CD4 <200, merged)
+I7CD4<-best_theta[3] #200-350
+Rest<-best_theta[4]   #>350
+PropTR<-best_theta[5]
+
+#Values 
+G<-best_theta[6]  #Population growth rate 1/1000 anually
+m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")  #Mortality general population
+mVIH235<-best_theta[7] #Mortality CD4 200-350; Alejos et al Medicine 2016
+mVIH35<-best_theta[8]  #Mortality CD4 >350; Alejos et al Medicine 2016
+mAIDS<-best_theta[9]   #Parastu et al PLOSone 2018
+Cvh<-best_theta[10] #Partner change rate in the very high group 18-123/year Nichols et al. 2016
+Ch<-best_theta[11]     #Partner change rate in the high group 5-18/year Nichols et al. 2016
+Cl<-best_theta[12]   #Partner change rate in the low group 0.5-5/year Nichols et al. 2016
+Cvl<-best_theta[13]  #Partner change rate in the very low group 0.04-0.5/year Nichols et al. 2016
+nvh<-best_theta[14]     #Proportion of the total population in each group 5-15% Nichols et al. 2016
+nh<-best_theta[15]     #30-50% Nichols et al. 2016
+nl<-best_theta[16]     #10-35% Nichols et al. 2016
+nvl<-best_theta[17]    #4-46%
+
+B<-best_theta[18]  #per partnership transmissibility Nichols et al 2016.
+I12<-best_theta[19] #1 month duration in stage 1 of HIV infection
+I23<-best_theta[20] #1 month duration in stage 2 of HIV infection
+I34<-best_theta[21] #1 month duration in stage 3 of HIV infection
+I45<-best_theta[22] #3 month duration in stage 4 of HIV infection
+I56<-best_theta[23] #3 month duration in stage 5 of HIV infection
+I67<-best_theta[24] #Chronic duration in stage 6 of HIV infection
+I78<-best_theta[25] #Chronic duration in stage 7 of HIV infection
+
+PTr<-c(best_theta[26],best_theta[27],best_theta[28]) #Nuñez et al AIDS 2018
+
+Woff <- 0.0038 #Proportion of people who go off PrEP. SiPrEP 15% anual, p=1-e^-rt
+W<-0.00192    #Proportion of people who go on PrEP. SiPrEP describe 5000-7000 nuevos anuales y eso supone una probabilidad alrededor de 0.1 anual.RiskRed<-1-0.86 # 0.86 for TDF, 0.934 for TAF and 0.952 for CBV 0.96 for LCA
+WAIDS<-0.7/52  
+WHIV<-0.84/52
+WM350<-0.94/52
+WTREAT<-0.96/52    
+WSusceptible<-1/52
+Treatcost<-188.54
+AIDScost<-19000/52
+PrEPcost<-26.94 # TDF/FTC 26.94, 
+```
+```{r}
+OWSAmat<-matrix(ncol=4, nrow=29, dimnames=list(NULL, c("QALYsl", "Costsl", "QALYsh", "Costsh")))
+```
+
+## 1. NumHSHVIH
+### Low estimate
+```{r}
+NumHSHVIH<-best_theta[1]-best_theta[1]*0.2
+NumHSH<-892955-NumHSHVIH
+
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, 
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+
+l1<-QALYCostP(QP)
+l1
+OWSAmat[1,1:2]<-l1
+OWSAmat
+```
+
+### High estimate
+```{r}
+
+NumHSHVIH<-best_theta[1]+best_theta[1]*0.2
+NumHSH<-892955-NumHSHVIH
+
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR, RiskRed = 1-0.86)
+
+h1<-QALYCostP(QP)
+OWSAmat[1,3:4]<-h1
+OWSAmat
+
+NumHSHVIH<-best_theta[1]
+NumHSH<-892955-NumHSHVIH
+```
+
+## 2. % pacientes con CD4 menor de 200
+### Low estimate
+```{r}
+ACD4<-best_theta[2]-best_theta[2]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+l2<-QALYCostP(QP)
+OWSAmat[2,1:2]<-l2
+```
+
+### High estimate
+```{r}
+ACD4<-best_theta[2]+best_theta[2]*0.2
+
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4<-best_theta[2]+best_theta[2]*0.2, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+
+h2<-QALYCostP(QP)
+OWSAmat[2,3:4]<-h2
+OWSAmat
+ACD4<-best_theta[2]
+```
+
+
+## 4. % pacientes con CD4 entre 350-500
+### Low estimate
+```{r}
+I7CD4<-best_theta[3]-best_theta[3]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+l4<-QALYCostP(Q)
+OWSAmat[3,1:2]<-l4
+```
+
+### High estimate
+```{r}
+I7CD4<-best_theta[3]+best_theta[3]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4=best_theta[3]+best_theta[3]*0.2, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+
+h4<-QALYCostP(Q)
+OWSAmat[3,3:4]<-h4
+OWSAmat
+I7CD4=best_theta[3]
+```
+
+## 5. % pacientes con CD4 mayor de 500
+### Low estimate
+```{r}
+Rest<-best_theta[4]-best_theta[4]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+l5<-QALYCostP(Q)
+OWSAmat[4,1:2]<-l5
+```
+
+### High estimate
+```{r}
+Rest<-best_theta[4]+best_theta[4]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest=best_theta[4]+best_theta[4]*0.2, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+
+h5<-QALYCostP(Q)
+OWSAmat[4,3:4]<-h5
+OWSAmat
+Rest<-best_theta[4]
+```
+## 6. Proportion on treatment
+### Low estimate
+```{r}
+PropTR<-max(0, best_theta[5]*0.8)
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=max(0, best_theta[5]*0.8), RiskRed = 1-0.86)
+l6<-QALYCostP(Q)
+OWSAmat[5,1:2]<-l6
+```
+
+### High estimate
+```{r}
+PropTR<-min(1, best_theta[5]*1.2)
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=min(1, best_theta[5]*1.2), RiskRed = 1-0.86)
+
+h6<-QALYCostP(Q)
+OWSAmat[5,3:4]<-h6
+OWSAmat
+PropTR<-best_theta[5]
+```
+
+## 7. Population growth
+### Low estimate
+```{r}
+G<-best_theta[6]-best_theta[6]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l7<-QALYCostP(Q)
+OWSAmat[6,1:2]<-l7
+```
+
+### High estimate
+```{r}
+G<-best_theta[6]+best_theta[6]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR=PropTR, RiskRed = 1-0.86)
+h7<-QALYCostP(Q)
+OWSAmat[6,3:4]<-h7
+G<-best_theta[6]
+```
+
+## 8. Mortality HIV 200-350 CD4
+### Low estimate
+```{r}
+mVIH235=best_theta[7]-best_theta[7]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l8<-QALYCostP(Q)
+OWSAmat[7,1:2]<-l8
+```
+
+### High estimate
+```{r}
+mVIH235=best_theta[7]+best_theta[7]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h8<-QALYCostP(Q)
+OWSAmat[7,3:4]<-h8
+OWSAmat
+mVIH235<-best_theta[7]
+```
+
+## 9. Mortality HIV >350 CD4
+### Low estimate
+```{r}
+mVIH35=best_theta[8]-best_theta[8]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l9<-QALYCostP(Q)
+OWSAmat[8,1:2]<-l9
+```
+
+### High estimate
+```{r}
+mVIH35=best_theta[8]+best_theta[8]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h9<-QALYCostP(Q)
+OWSAmat[8,3:4]<-h9
+OWSAmat
+mVIH35<-best_theta[8]
+```
+
+## 10. Mortality AIDS
+### Low estimate
+```{r}
+mAIDS=(best_theta[9]-best_theta[9]*0.2)
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+
+l10<-QALYCostP(Q)
+OWSAmat[9,1:2]<-l10
+```
+
+### High estimate
+```{r}
+mAIDS=best_theta[9]+best_theta[9]*0.2
+Q<-HIVSIMPREP(Age=85, NoSem=52, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years=20, PropTR=PropTR, RiskRed = 1-0.86)
+h10<-QALYCostP(Q)
+OWSAmat[9,3:4]<-h10
+mAIDS<-best_theta[9]
+```
+
+## 11. Cvh Partner change rate in very hig risk group
+### Low estimate
+```{r}
+Cvh<-best_theta[10]-best_theta[10]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l11<-QALYCostP(Q)
+OWSAmat[10,1:2]<-l11
+```
+
+### High estimate
+```{r}
+Cvh<-best_theta[10]+best_theta[10]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h11<-QALYCostP(Q)
+OWSAmat[10,3:4]<-h11
+OWSAmat
+Cvh<-best_theta[10]
+```
+
+## 12. Ch Partner change rate in high risk group
+### Low estimate
+```{r}
+Ch<-best_theta[11]-best_theta[11]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l12<-QALYCostP(Q)
+OWSAmat[11,1:2]<-l12
+```
+
+### High estimate
+```{r}
+Ch<-best_theta[11]+best_theta[11]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h12<-QALYCostP(Q)
+OWSAmat[11,3:4]<-h12
+OWSAmat
+Ch<-best_theta[11]
+```
+
+## 13. Cl Partner change rate in low risk group
+### Low estimate
+```{r}
+Cl<-best_theta[12]-best_theta[12]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l13<-QALYCostP(Q)
+OWSAmat[12,1:2]<-l13
+```
+
+### High estimate
+```{r}
+Cl<-best_theta[12]+best_theta[12]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h13<-QALYCostP(Q)
+OWSAmat[12,3:4]<-h13
+OWSAmat
+Cl<-best_theta[12]
+```
+
+## 14. Cvl Partner change rate in very low risk group
+### Low estimate
+```{r}
+Cvl<-best_theta[13]-best_theta[13]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l14<-QALYCostP(Q)
+OWSAmat[13,1:2]<-l14
+```
+
+### High estimate
+```{r}
+Cvl<-best_theta[13]+best_theta[13]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h14<-QALYCostP(Q)
+OWSAmat[13,3:4]<-h14
+OWSAmat
+Cvl<-best_theta[13]
+```
+
+## 15. nvh proportion of the population in each group
+### Low estimate
+```{r}
+nvh<-best_theta[14]-best_theta[14]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh=best_theta[14]-best_theta[14]*0.2, nh, nl, nvl, B,
+                 I12, I23, I34,
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l15<-QALYCostP(Q)
+OWSAmat[14,1:2]<-l15
+```
+
+### High estimate
+```{r}
+nvh<-best_theta[14]+best_theta[14]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h15<-QALYCostP(Q)
+OWSAmat[14,3:4]<-h15
+OWSAmat
+nvh<-best_theta[14]
+```
+
+## 16. nh proportion of the population in each group
+### Low estimate
+```{r}
+nh<-best_theta[15]-best_theta[15]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l16<-QALYCostP(Q)
+OWSAmat[15,1:2]<-l16
+```
+
+### High estimate
+```{r}
+nh=best_theta[15]+best_theta[15]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h16<-QALYCostP(Q)
+OWSAmat[15,3:4]<-h16
+OWSAmat
+nh<-best_theta[15]
+```
+
+## 17. nl proportion of the population in each group
+### Low estimate
+```{r}
+nl<-best_theta[16]-best_theta[16]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l17<-QALYCostP(Q)
+OWSAmat[16,1:2]<-l17
+```
+
+### High estimate
+```{r}
+nl=best_theta[16]+best_theta[16]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl=best_theta[16]+best_theta[16]*0.2, nvl, B,
+                 I12, I23, I34,
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h17<-QALYCostP(Q)
+OWSAmat[16,3:4]<-h17
+OWSAmat
+nl<-best_theta[16]
+```
+
+## 18. nvl proportion of the population in each group
+### Low estimate
+```{r}
+nvl<-best_theta[17]-best_theta[17]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l18<-QALYCostP(Q)
+OWSAmat[17,1:2]<-l18
+```
+
+### High estimate
+```{r}
+nvl<-best_theta[17]+best_theta[17]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl=best_theta[17]+best_theta[17]*0.2, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h18<-QALYCostP(Q)
+OWSAmat[17,3:4]<-h18
+OWSAmat
+nvl<-best_theta[17]
+```
+
+## 19. B per partnership transmissibility 
+### Low estimate
+```{r}
+B<-best_theta[18]-best_theta[18]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B=best_theta[18]-best_theta[18]*0.2,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l19<-QALYCostP(Q)
+OWSAmat[18,1:2]<-l19
+```
+
+### High estimate
+```{r}
+B<-best_theta[18]+best_theta[18]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B=best_theta[18]+best_theta[18]*0.2,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h19<-QALYCostP(Q)
+OWSAmat[18,3:4]<-h19
+OWSAmat
+B<-best_theta[18]
+```
+
+## 20. I12, 1 month duration in stage 1 of HIV infection
+### Low estimate
+```{r}
+I12<-best_theta[19]-best_theta[19]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l20<-QALYCostP(Q)
+OWSAmat[19,1:2]<-l20
+```
+
+### High estimate
+```{r}
+I12<-best_theta[19]+best_theta[19]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h20<-QALYCostP(Q)
+OWSAmat[19,3:4]<-h20
+OWSAmat
+I12<-best_theta[19]
+```
+
+## 21. I23, 1 month duration in stage 2 of HIV infection
+### Low estimate
+```{r}
+I23<-best_theta[20]-best_theta[20]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l21<-QALYCostP(Q)
+OWSAmat[20,1:2]<-l21
+```
+
+### High estimate
+```{r}
+I23<-best_theta[20]+best_theta[20]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h21<-QALYCostP(Q)
+OWSAmat[20,3:4]<-h21
+OWSAmat
+I23<-best_theta[20]
+```
+
+## 22. I34, 1 month duration in stage 3 of HIV infection
+### Low estimate
+```{r}
+I34<-best_theta[21]-best_theta[21]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l22<-QALYCostP(Q)
+OWSAmat[21,1:2]<-l22
+```
+
+### High estimate
+```{r}
+I34<-best_theta[21]+best_theta[21]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h22<-QALYCostP(Q)
+OWSAmat[21,3:4]<-h22
+OWSAmat
+I34<-best_theta[21]
+```
+
+## 23. I45, 3 month duration in stage 4 of HIV infection
+### Low estimate
+```{r}
+I45<-best_theta[22]-best_theta[22]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l23<-QALYCostP(Q)
+OWSAmat[22,1:2]<-l23
+```
+
+### High estimate
+```{r}
+I45=best_theta[22]+best_theta[22]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h23<-QALYCostP(Q)
+OWSAmat[22,3:4]<-h23
+OWSAmat
+I45<-best_theta[22]
+```
+
+## 26. I56, 3 month duration in stage 5 of HIV infection
+### Low estimate
+```{r}
+I56<-best_theta[23]-best_theta[23]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l26<-QALYCostP(Q)
+OWSAmat[23,1:2]<-l26
+```
+
+### High estimate
+```{r}
+I56<-best_theta[23]+best_theta[23]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h26<-QALYCostP(Q)
+OWSAmat[23,3:4]<-h26
+OWSAmat
+I56<-best_theta[23]
+```
+
+## 27. I67, 3 month duration in stage 6 of HIV infection
+### Low estimate
+```{r}
+I67<-best_theta[24]-best_theta[24]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l27<-QALYCostP(Q)
+OWSAmat[24,1:2]<-l27
+```
+
+### High estimate
+```{r}
+I67<-best_theta[24]+best_theta[24]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h27<-QALYCostP(Q)
+OWSAmat[24,3:4]<-h27
+OWSAmat
+I67<-best_theta[24]
+```
+
+## 28. I78, Chronic duration in stage 7
+### Low estimate
+```{r}
+I78<-best_theta[25]-best_theta[25]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l28<-QALYCostP(Q)
+OWSAmat[25,1:2]<-l28
+```
+
+### High estimate
+```{r}
+I78<-best_theta[25]+best_theta[25]*0.2
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h28<-QALYCostP(Q)
+OWSAmat[25,3:4]<-h28
+OWSAmat
+I78<-best_theta[25]
+```
+
+
+## 30. PTr[1], Probaility of starting treatment
+### Low estimate
+```{r}
+PTr<-c(best_theta[26]-best_theta[26]*0.2,best_theta[27],best_theta[28])
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l30<-QALYCostP(Q)
+OWSAmat[26,1:2]<-l30
+```
+
+### High estimate
+```{r}
+PTr<-c(best_theta[26]+best_theta[26]*0.2,best_theta[27],best_theta[28])
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr=c(best_theta[26]+best_theta[26]*0.2,best_theta[27],best_theta[28]), years, PropTR=PropTR, RiskRed = 1-0.86)
+h30<-QALYCostP(Q)
+OWSAmat[26,3:4]<-h30
+OWSAmat
+PTr<-c(best_theta[26],best_theta[27],best_theta[28])
+```
+
+
+## 31. PTr[2], Probaility of starting treatment
+### Low estimate
+```{r}
+PTr<-c(best_theta[26],best_theta[27]-best_theta[27]*0.2,best_theta[28])
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l31<-QALYCostP(Q)
+OWSAmat[27,1:2]<-l31
+```
+
+### High estimate
+```{r}
+PTr<-c(best_theta[26],best_theta[27]+best_theta[27]*0.2,best_theta[28])
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h31<-QALYCostP(Q)
+OWSAmat[27,3:4]<-h31
+OWSAmat
+PTr<-c(best_theta[26],best_theta[27],best_theta[28])
+```
+
+## 32. PTr[3], Probaility of starting treatment
+### Low estimate
+```{r}
+PTr<-c(best_theta[26],best_theta[27],best_theta[28]-best_theta[28]*0.2)
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+l32<-QALYCostP(Q)
+OWSAmat[28,1:2]<-l32
+```
+
+### High estimate
+```{r}
+PTr<-c(best_theta[26],best_theta[27],best_theta[28]+best_theta[28]*0.2)
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h32<-QALYCostP(Q)
+OWSAmat[28,3:4]<-h32
+OWSAmat
+PTr<-c(best_theta[26],best_theta[27],best_theta[28])
+```
+## Impacto de la adherencia
+### High estimate 
+```{r}
+
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = 1-0.86)
+h33<-QALYCostP(Q)
+OWSAmat[29,3:4]<-h33
+
+OWSAmat
+```
+### Low estimate
+```{r}
+
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=PropTR, RiskRed = (1-0.86)/0.7)
+l33<-QALYCostP(Q)
+OWSAmat[29,1:2]<-l33
+OWSAmat
+```
+
+############################################################################################################-------Análisis OWA PrEP LCA----------############################################
+#############################################################################################
+```{r}
+source("HIVSIM05.R")
+source("QALYCostP.R")
+Woff      <- 0.0038 #Proportion of people who go off PrEP. SiPrEP 15% anual, p=1-e^-rt
+W<-0.00192    #Proportion of people who go on PrEP. SiPrEP describe 5000-7000 nuevos anuales y eso supone una probabilidad alrededor de 0.1 anual.
+PrEPcost<-898.82 #LCA 898.82  
+RiskRed<-1-0.96 
+```
+```{r}
+OWSAmatP<-matrix(ncol=4, nrow=29, dimnames=list(NULL, c("QALYslP", "CostslP", "QALYshP", "CostshP")))
+```
+
+
+
+
+## 1. NumHSHVIH
+### Low estimate
+```{r}
+NumHSHVIH<-best_theta[1]-best_theta[1]*0.2
+NumHSH<-892955-NumHSHVIH 
+
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96, 
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years)
+
+l1P<-QALYCostP(QP)
+l1P
+OWSAmatP[1,1:2]<-l1P
+OWSAmatP
+```
+
+### High estimate
+```{r}
+NumHSHVIH<-best_theta[1]+best_theta[1]*0.2
+NumHSH<-892955-NumHSHVIH 
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years)
+
+h1P<-QALYCostP(QP)
+h1P
+OWSAmatP[1,3:4]<-h1P
+OWSAmatP
+NumHSHVIH<-best_theta[1]
+NumHSH<-892955-NumHSHVIH 
+```
+
+## 2. % pacientes con CD4 menor de 200
+### Low estimate
+```{r}
+ACD4<-best_theta[2]-best_theta[2]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years)
+l2P<-QALYCostP(QP)
+OWSAmatP[2,1:2]<-l2P
+```
+
+### High estimate
+```{r}
+ACD4<-best_theta[2]+best_theta[2]*0.2
+
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years)
+
+h2P<-QALYCostP(QP)
+OWSAmatP[2,3:4]<-h2P
+OWSAmatP
+ACD4<-best_theta[2]
+```
+
+
+## 4. % pacientes con CD4 entre 350-500
+### Low estimate
+```{r}
+I7CD4<-best_theta[3]-best_theta[3]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years)
+l4P<-QALYCostP(QP)
+OWSAmatP[3,1:2]<-l4P
+```
+
+### High estimate
+```{r}
+I7CD4=best_theta[3]+best_theta[3]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years)
+
+h4P<-QALYCostP(QP)
+OWSAmatP[3,3:4]<-h4P
+OWSAmatP
+I7CD4<-best_theta[3]
+```
+
+## 5. % pacientes con CD4 mayor de 500
+### Low estimate
+```{r}
+Rest<-best_theta[4]-best_theta[4]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years)
+l5P<-QALYCostP(QP)
+OWSAmatP[4,1:2]<-l5P
+```
+
+### High estimate
+```{r}
+Rest<-best_theta[4]+best_theta[4]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years)
+
+h5P<-QALYCostP(QP)
+OWSAmatP[4,3:4]<-h5P
+OWSAmatP
+Rest<-best_theta[4]
+```
+## 6. Proportion on treatment
+### Low estimate
+```{r}
+PropTR<-max(0, best_theta[5]*0.8)
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=max(0, best_theta[5]*0.8))
+l6P<-QALYCostP(QP)
+OWSAmatP[5,1:2]<-l6P
+```
+
+### High estimate
+```{r}
+PropTR<-min(1, best_theta[5]*1.2)
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR=min(1, best_theta[5]*1.2))
+h6P<-QALYCostP(QP)
+OWSAmatP[5,3:4]<-h6P
+OWSAmatP
+PropTR<-best_theta[5]
+```
+
+## 7. Population growth
+### Low estimate
+```{r}
+G<-best_theta[6]-best_theta[6]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+l7P<-QALYCostP(QP)
+OWSAmatP[6,1:2]<-l7P
+```
+
+### High estimate
+```{r}
+G<-best_theta[6]+best_theta[6]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+h7P<-QALYCostP(QP)
+OWSAmatP[6,3:4]<-h7P
+OWSAmatP
+G<-best_theta[6]
+```
+
+## 8. Mortality HIV 200-350 CD4
+### Low estimate
+```{r}
+mVIH235<-best_theta[7]-best_theta[7]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+l8P<-QALYCostP(QP)
+OWSAmatP[7,1:2]<-l8P
+```
+
+### High estimate
+```{r}
+mVIH235<-best_theta[7]+best_theta[7]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+h8P<-QALYCostP(QP)
+OWSAmatP[7,3:4]<-h8P
+OWSAmatP
+mVIH235<-best_theta[7]
+```
+
+## 9. Mortality HIV >350 CD4
+### Low estimate
+```{r}
+mVIH35<-best_theta[8]-best_theta[8]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+l9P<-QALYCostP(QP)
+OWSAmatP[8,1:2]<-l9P
+```
+
+### High estimate
+```{r}
+mVIH35<-best_theta[8]+best_theta[8]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+h9P<-QALYCostP(QP)
+OWSAmatP[8,3:4]<-h9P
+OWSAmatP
+mVIH35<-best_theta[8]
+```
+
+## 10. Mortality AIDS
+### Low estimate
+```{r}
+mAIDS<-best_theta[9]-best_theta[9]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+l10P<-QALYCostP(QP)
+OWSAmatP[9,1:2]<-l10P
+```
+
+### High estimate
+```{r}
+mAIDS<-best_theta[9]+best_theta[9]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+h10P<-QALYCostP(QP)
+OWSAmatP[9,3:4]<-h10P
+OWSAmatP
+mAIDS<-best_theta[9]
+```
+
+## 11. Cvh Partner change rate in very hig risk group
+### Low estimate
+```{r}
+Cvh<-best_theta[10]-best_theta[10]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+l11P<-QALYCostP(QP)
+OWSAmatP[10,1:2]<-l11P
+```
+
+### High estimate
+```{r}
+Cvh<-best_theta[10]+best_theta[10]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+h11P<-QALYCostP(QP)
+OWSAmatP[10,3:4]<-h11P
+OWSAmatP
+Cvh<-best_theta[10]
+```
+
+## 12. Ch Partner change rate in high risk group
+### Low estimate
+```{r}
+Ch<-best_theta[11]-best_theta[11]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch=best_theta[11]-best_theta[11]*0.2, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+l12P<-QALYCostP(QP)
+OWSAmatP[11,1:2]<-l12P
+```
+
+### High estimate
+```{r}
+Ch<-best_theta[11]+best_theta[11]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch=best_theta[11]+best_theta[11]*0.2, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+h12P<-QALYCostP(QP)
+OWSAmatP[11,3:4]<-h12P
+OWSAmatP
+Ch<-best_theta[11]
+```
+
+## 13. Cl Partner change rate in low risk group
+### Low estimate
+```{r}
+Cl<-best_theta[12]-best_theta[12]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+l13P<-QALYCostP(QP)
+OWSAmatP[12,1:2]<-l13P
+```
+
+### High estimate
+```{r}
+Cl<-best_theta[12]+best_theta[12]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years,PropTR)
+h13P<-QALYCostP(QP)
+OWSAmatP[12,3:4]<-h13P
+OWSAmatP
+Cl<-best_theta[12]
+```
+
+## 14. Cvl Partner change rate in very low risk group
+### Low estimate
+```{r}
+Cvl<-best_theta[13]-best_theta[13]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l14P<-QALYCostP(QP)
+OWSAmatP[13,1:2]<-l14P
+```
+
+### High estimate
+```{r}
+Cvl<-best_theta[13]+best_theta[13]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h14P<-QALYCostP(QP)
+OWSAmatP[13,3:4]<-h14P
+OWSAmatP
+Cvl<-best_theta[13]
+```
+
+## 15. nvh proportion of the population in each group
+### Low estimate
+```{r}
+nvh<-best_theta[14]-best_theta[14]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l15P<-QALYCostP(QP)
+OWSAmatP[14,1:2]<-l15P
+```
+
+### High estimate
+```{r}
+nvh<-best_theta[14]+best_theta[14]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h15P<-QALYCostP(QP)
+OWSAmatP[14,3:4]<-h15P
+OWSAmatP
+nvh<-best_theta[14]
+```
+
+## 16. nh proportion of the population in each group
+### Low estimate
+```{r}
+nh<-best_theta[15]-best_theta[15]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l16P<-QALYCostP(QP)
+OWSAmatP[15,1:2]<-l16P
+```
+
+### High estimate
+```{r}
+nh<-best_theta[15]+best_theta[15]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h16P<-QALYCostP(QP)
+OWSAmatP[15,3:4]<-h16P
+OWSAmatP
+nh<-best_theta[15]
+```
+
+## 17. nl proportion of the population in each group
+### Low estimate
+```{r}
+nl<-best_theta[16]-best_theta[16]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l17P<-QALYCostP(QP)
+OWSAmatP[16, 1:2]<-l17P
+```
+
+### High estimate
+```{r}
+nl<-best_theta[16]+best_theta[16]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h17P<-QALYCostP(QP)
+OWSAmatP[16,3:4]<-h17P
+OWSAmatP
+nl<-best_theta[16]
+```
+
+## 18. nvl proportion of the population in each group
+### Low estimate
+```{r}
+nvl<-best_theta[17]-best_theta[17]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l18P<-QALYCostP(QP)
+OWSAmatP[17, 1:2]<-l18P
+```
+
+### High estimate
+```{r}
+nvl<-best_theta[17]+best_theta[17]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h18P<-QALYCostP(QP)
+OWSAmatP[17,3:4]<-h18P
+OWSAmatP
+nvl<-best_theta[17]
+```
+
+## 19. B per partnership transmissibility 
+### Low estimate
+```{r}
+B<-best_theta[18]-best_theta[18]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l19P<-QALYCostP(QP)
+OWSAmatP[18, 1:2]<-l19P
+```
+
+### High estimate
+```{r}
+B<-best_theta[18]+best_theta[18]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h19P<-QALYCostP(QP)
+OWSAmatP[18,3:4]<-h19P
+OWSAmatP
+B<-best_theta[18]
+```
+
+## 20. I12, 1 month duration in stage 1 of HIV infection
+### Low estimate
+```{r}
+I12<-best_theta[19]-best_theta[19]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l20P<-QALYCostP(QP)
+OWSAmatP[19, 1:2]<-l20P
+```
+
+### High estimate
+```{r}
+I12<-best_theta[19]+best_theta[19]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h20P<-QALYCostP(QP)
+OWSAmatP[19,3:4]<-h20P
+OWSAmatP
+I12<-best_theta[19]
+```
+
+## 21. I23, 1 month duration in stage 2 of HIV infection
+### Low estimate
+```{r}
+I23<-best_theta[20]-best_theta[20]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l21P<-QALYCostP(QP)
+OWSAmatP[20, 1:2]<-l21P
+```
+
+### High estimate
+```{r}
+I23<-best_theta[20]+best_theta[20]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23=best_theta[20]+best_theta[20]*0.2, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h21P<-QALYCostP(QP)
+OWSAmatP[20,3:4]<-h21P
+OWSAmatP
+I23<-best_theta[20]
+```
+
+## 22. I34, 1 month duration in stage 3 of HIV infection
+### Low estimate
+```{r}
+I34<-best_theta[21]-best_theta[21]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34=best_theta[21]-best_theta[21]*0.2, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l22P<-QALYCostP(QP)
+OWSAmatP[21, 1:2]<-l22P
+```
+
+### High estimate
+```{r}
+I34<-best_theta[21]+best_theta[21]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h22P<-QALYCostP(QP)
+OWSAmatP[21,3:4]<-h22P
+OWSAmatP
+I34<-best_theta[21]
+```
+
+## 23. I45, 3 month duration in stage 4 of HIV infection
+### Low estimate
+```{r}
+I45<-best_theta[22]-best_theta[22]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l23P<-QALYCostP(QP)
+OWSAmatP[22, 1:2]<-l23P
+```
+
+### High estimate
+```{r}
+I45<-best_theta[22]+best_theta[22]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h23P<-QALYCostP(QP)
+OWSAmatP[22,3:4]<-h23P
+OWSAmatP
+I45<-best_theta[22]
+```
+
+## 26. I56, 3 month duration in stage 5 of HIV infection
+### Low estimate
+```{r}
+I56<-best_theta[23]-best_theta[23]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l26P<-QALYCostP(QP)
+OWSAmatP[23, 1:2]<-l26P
+```
+
+### High estimate
+```{r}
+I56<-best_theta[23]+best_theta[23]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h26P<-QALYCostP(QP)
+OWSAmatP[23,3:4]<-h26P
+OWSAmatP
+I56<-best_theta[23]
+```
+
+## 27. I67, 3 month duration in stage 6 of HIV infection
+### Low estimate
+```{r}
+I67<-best_theta[24]-best_theta[24]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l27P<-QALYCostP(QP)
+OWSAmatP[24, 1:2]<-l27P
+```
+
+### High estimate
+```{r}
+I67<-best_theta[24]+best_theta[24]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67=best_theta[23]+best_theta[23]*0.2, 
+                 I78, PTr, years, PropTR)
+h27P<-QALYCostP(QP)
+OWSAmatP[24,3:4]<-h27P
+OWSAmatP
+I67<-best_theta[24]
+```
+
+## 28. I78, Chronic duration in stage 7
+### Low estimate
+```{r}
+I78=best_theta[25]-best_theta[25]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+  l28P<-QALYCostP(QP)
+OWSAmatP[25, 1:2]<-l28P
+```
+
+### High estimate
+```{r}
+I78<-best_theta[25]+best_theta[25]*0.2
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h28P<-QALYCostP(QP)
+OWSAmatP[25,3:4]<-h28P
+OWSAmatP
+I78<-best_theta[25]
+```
+
+
+## 30. PTr[1], Probaility of starting treatment
+### Low estimate
+```{r}
+PTr<-c(best_theta[26]-best_theta[26]*0.2,best_theta[27],best_theta[28])
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l30P<-QALYCostP(QP)
+OWSAmatP[26, 1:2]<-l30P
+```
+
+### High estimate
+```{r}
+PTr<-c(best_theta[26]+best_theta[26]*0.2,best_theta[27],best_theta[28])
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B, RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h30P<-QALYCostP(QP)
+OWSAmatP[26,3:4]<-h30P
+OWSAmatP
+PTr<-c(best_theta[26],best_theta[27],best_theta[28])
+```
+
+## 31. PTr[2], Probaility of starting treatment
+### Low estimate
+```{r}
+PTr<-c(best_theta[26],best_theta[27]-best_theta[27]*0.2,best_theta[28])
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l31P<-QALYCostP(QP)
+OWSAmatP[27, 1:2]<-l31P
+```
+
+### High estimate
+```{r}
+PTr<-c(best_theta[26],best_theta[27]+best_theta[27]*0.2,best_theta[28])
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h31P<-QALYCostP(QP)
+OWSAmatP[27,3:4]<-h31P
+OWSAmatP
+PTr<-c(best_theta[26],best_theta[27],best_theta[28])
+```
+
+## 32. PTr[3], Probaility of starting treatment
+### Low estimate
+```{r}
+PTr<-c(best_theta[26],best_theta[27],best_theta[28]-best_theta[28]*0.2)
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l32P<-QALYCostP(QP)
+OWSAmatP[28, 1:2]<-l32P
+```
+
+### High estimate
+```{r}
+PTr<-c(best_theta[26],best_theta[27],best_theta[28]+best_theta[28]*0.2)
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h32P<-QALYCostP(QP)
+OWSAmatP[28,3:4]<-h32P
+OWSAmatP
+PTr<-c(best_theta[26],best_theta[27],best_theta[28])
+```
+## Impacto de la adherencia
+### High estimate
+```{r}
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,RiskRed=1-0.96,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+h33<-QALYCostP(QP)
+OWSAmatP[29,3:4]<-h33
+OWSAmatP
+```
+### Low estimate
+```{r}
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
+                 ACD4, I7CD4, Rest, 
+                 G, Woff, W, 
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl, 
+                 nvh, nh, nl, nvl, B,RiskRed=(1-0.96)/0.99,
+                 I12, I23, I34, 
+                 I45, I56, I67, 
+                 I78, PTr, years, PropTR)
+l33<-QALYCostP(QP)
+OWSAmatP[29,1:2]<-l33
+OWSAmatP
+```
+
+
+# Combine, save and export
+```{r}
+save(OWSAmat, file="OWSAmat_TDF")
+save(OWSAmatP, file="OWSAmat_LCA")
+load("OWSAmat_TDF")
+load("OWSAmat_LCA")
+
+OWSADAT<-cbind(OWSAmat, OWSAmatP)
+save(OWSADAT, file="OWSADAT_TDF_LCA")
+tail(OWSADAT)
+```
+
+```{r}
+ICER_Low<-(OWSADAT[,6]-OWSADAT[,2])/(OWSADAT[,5]-OWSADAT[,1])
+ICER_High<-(OWSADAT[,8]-OWSADAT[,4])/(OWSADAT[,7]-OWSADAT[,3])
+ICER_High
+ICER_Low
+Variable<-c("HIV-MSM", "ACD4", "I7CD4", "Rest","PropTR", "G","mVIH235","mVIH35","mAIDS","Cvh","Ch","Cl","Cvl","nvh","nh","nl","nvl","B","I12","I23","I34","I45","I56","I67","I78","PTr1", "PTr2", "PTr3", "Adherence")
+ICER<-4783564
+ICERS<-NULL
+ICERS<-data.frame(Variable, ICER_High, ICER_Low, ICER)
+ICERS$dif<-abs(ICERS$ICER_High-ICERS$ICER_Low)
+
+
+ICERS$Direction <- ifelse(ICERS$ICER_High > ICERS$ICER_Low,
+                          "Increase ICER",
+                          "Decrease ICER")
+
+OWSATDFLCA <- ICERS %>%
+  mutate(Variable = fct_reorder(Variable, dif)) %>%
+  ggplot(aes(x = Variable, y = ICER,
+             ymin = ICER_Low, ymax = ICER_High,
+             colour = Direction)) +
+  geom_linerange(size = 3) +
+  coord_flip() +
+  geom_hline(yintercept = 4293887, col = "blue") +
+  geom_hline(yintercept = 33895.59, col = "red") +
+  scale_colour_manual(values = c("Increase ICER" = "#D55E00",
+                                 "Decrease ICER" = "#0072B2")) +
+  ylab("ICER") +
+  theme_classic() +
+  theme(plot.margin = unit(c(1,1,1,1), "cm"))
+
+tiff("OWSATDF_LCA_01.tif", width=16, height=12, units="cm", res=300)
+OWSATDFLCA
+save(OWSATDFLCA, file="OWSATDF_LCA")
+dev.off
+
+```

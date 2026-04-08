@@ -1,0 +1,315 @@
+---
+title: "Coste-eficacia de PrEP en España"
+author: "Philip Wikman"
+date: "15 de mayo de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(parallel)
+library(tidyr)
+library(DirichletReg)
+library(BCEA)
+source("invbeta.R")
+source("invgamma.R")
+source("HIVSIM05.R")
+source("QalyCalc.R")
+source("CostCalc.R")
+source("QALYCostP.R")
+```
+
+# Load best fit parameters
+```{r}
+load("Best_theta_Param")
+```
+
+# PSA sensitivity analysis
+## Simular con PREP-TDF
+```{r}
+#MAT<-matrix(data=NA, nrow=i, ncol=2)
+
+repeats<-50 # this will be multiplied by each core.
+MAT<-matrix(data=NA, nrow=repeats, ncol=2)
+DistEdad<-vector(length=85)
+DistEdad[1:10]<-0.114106384/10
+DistEdad[11:20]<-0.116645332/10
+DistEdad[21:30]<-0.281029342/10
+DistEdad[31:40]<-0.30552628/10
+DistEdad[41:50]<-0.112127906/10
+DistEdad[51:85]<-0.070564755/35
+  
+Age<-85
+years<-20
+NoSem<-52
+
+  
+WAIDS<-0.7/52  
+WHIV<-0.84/52
+WM350<-0.94/52
+WTREAT<-0.96/52    
+WSusceptible<-1/52
+
+Treatcost<-188.54
+AIDScost<-19000/52
+PrEPcost<-26.94
+RiskRed<-1-0.86
+m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")
+Woff <- 0.0038 #Proportion of people who go off PrEP. SiPrEP 15% anual, p=1-e^-rt
+W<-0.00192    #Proportion of people who go on PrEP. SiPrEP describe 5000-7000 nuevos anuales y eso supone una probabilidad alrededor de 0.1 anual.RiskRed<-1-0.86 # 0.86 for TDF, 0.934 for TAF and 0.952 for CBV 0.96 for LCA
+
+PSA<-function(repeats){
+for(i in 1:repeats) {
+
+ NumHSHVIH<-rnorm(1,best_theta[1],4000)
+  NumHSH<-892955-NumHSHVIH#(INE)
+  #Informe del continuo asistencial
+  
+  #Distribucion de los pacientes por rango de CD4
+  j<-rdirichlet(1,c(best_theta[2], best_theta[3], best_theta[4]))
+  ACD4<-j[1]  #<200 (merged with CD4 200-350)
+  I7CD4<-j[2] #350-500
+  Rest<-j[3]  #>500
+  PropTR<-invbeta(best_theta[5],best_theta[5]*0.1)
+  G<-rnorm(1,best_theta[6], best_theta[6]*0.2) #Population growth rate 1/1000 anually
+  Woff <- 0.0038 #Proportion of people who go off PrEP. SiPrEP 15% anual, p=1-e^-rt
+  W<-0.00192    #Proportion of people who go on PrEP.
+  #m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")  #Mortality general population
+  mVIH235<-rnorm(1,best_theta[7], best_theta[7]*0.2) #Alejos et al Medicine 2016
+  mVIH35<-rnorm(1,best_theta[8],best_theta[8]*0.2)#Alejos et al Medicine 2016
+  mAIDS<-rnorm(1,best_theta[9],best_theta[9]*0.2)#Parastu et al PLOSone 2018
+  Cvh<-rnorm(1,best_theta[10],best_theta[10]*0.2) #Partner change rate in the very high group 18-123/year Nichols et al. 2016
+  Ch<-rnorm(1,best_theta[11],best_theta[11]*0.2)     #Partner change rate in the high group 5-18/year Nichols et al. 2016
+  Cl<-rnorm(1,best_theta[12],best_theta[12]*0.2)    #Partner change rate in the low group 0.5-5/year Nichols et al. 2016
+  Cvl<-rnorm(1,best_theta[13],best_theta[13]*0.2)  #Partner change rate in the very low group 0.04-0.5/year Nichols et al. 2016
+  
+  j1<-rdirichlet(1,c(best_theta[14], best_theta[15], best_theta[16], best_theta[17]))
+  nvh<-j1[1]    #Proportion of the total population in each group 5-15% Nichols et al. 2016
+  nh<-j1[2]      # previo 0.4---30-50% Nichols et al. 2016
+  nl<-j1[3]      # previo 0.3---10-35% Nichols et al. 2016
+  nvl<-j1[4]    # previo 0.1---4-46%
+  B<-rnorm(1,best_theta[18], best_theta[18]*0.02)  #per partnership transmissibility Nichols et al 2016.
+  I12<-invbeta(best_theta[19],best_theta[19]*0.2) #1 month duration in stage 1 of HIV infection
+  I23<-invbeta(best_theta[20],best_theta[20]*0.2) #1 month duration in stage 2 of HIV infection
+  I34<-invbeta(best_theta[21],best_theta[21]*0.2) #1 month duration in stage 3 of HIV infection
+  I45<-invbeta(best_theta[22],best_theta[22]*0.2) #3 month duration in stage 4 of HIV infection
+  I56<-invbeta(best_theta[23],best_theta[23]*0.2)  #3 month duration in stage 5 of HIV infection
+  I67<-invbeta(best_theta[24],best_theta[24]*0.2)  #Chronic duration in stage 6 of HIV infection
+  I78<-invbeta(best_theta[25],best_theta[25]*0.2)  #Chronic duration in stage 7 of HIV infection
+  PTr<-c(invbeta(best_theta[26],best_theta[26]*0.2),invbeta(best_theta[27],best_theta[27]*0.2),invbeta(best_theta[28],best_theta[28]*0.2)) #Nuñez et al AIDS 2018
+
+Q<-HIVSIMPREP(Age = Age, NoSem = NoSem, NumHSH = NumHSH, NumHSHVIH = NumHSHVIH,
+  ACD4 = ACD4, I7CD4 = I7CD4, Rest = Rest,
+  G = G, Woff = Woff, W = W,
+  m = m, mVIH235 = mVIH235, mVIH35 = mVIH35, mAIDS = mAIDS,
+  Cvh = Cvh, Ch = Ch, Cl = Cl, Cvl = Cvl,
+  nvh = nvh, nh = nh, nl = nl, nvl = nvl, B = B,
+  I12 = I12, I23 = I23, I34 = I34,
+  I45 = I45, I56 = I56, I67 = I67,
+  I78 = I78, PTr = PTr, years = years,
+  PropTR = PropTR, RiskRed = 1 - 0.86)
+
+MAT[i,]<-(QALYCostP(Q))
+
+}
+
+MAT
+}
+```
+```{r}
+ncores<-detectCores()
+cl<-makeCluster(ncores, type="PSOCK")
+clusterSetRNGStream(cl, iseed=1)
+clusterExport(cl, c("MAT", "best_theta", "DistEdad", "Age", "years", "NoSem", "RiskRed","WAIDS", "WHIV", "WM350", "WTREAT", "WSusceptible", "Treatcost", "AIDScost","QALYCostP", "invbeta", "QalyCalc", "HIVSIMPREP", "PSA", "CostCalc", "rdirichlet", "invbeta", "W", "Woff", "PrEPcost","m"))
+
+MAT1<-clusterCall(cl, fun=PSA, repeats)
+
+stopCluster(cl)
+#MAT2NP<-PSA(10)
+x<-vector(length=2, mode="numeric")
+for (i in 1:ncores){x<-rbind(x,MAT1[[i]])}
+MAT2<-as.matrix(x[-1,])
+MAT2<-cbind(MAT2, "PrEP-TDF")
+save(MAT2, file="MAT2_LHS")
+MAT2
+```
+
+
+## Simular con PrEP LCA
+```{r}
+
+RiskRed<-1-0.96
+DistEdad<-vector(length=85)
+DistEdad[1:10]<-0.114106384/10
+DistEdad[11:20]<-0.116645332/10
+DistEdad[21:30]<-0.281029342/10
+DistEdad[31:40]<-0.30552628/10
+DistEdad[41:50]<-0.112127906/10
+DistEdad[51:85]<-0.070564755/35
+
+MATP<-matrix(data=NA, nrow=repeats, ncol=2)
+  
+Age<-85
+years<-20
+NoSem<-52
+
+WAIDS<-0.7/52  
+WHIV<-0.84/52
+WM350<-0.94/52
+WTREAT<-0.96/52    
+WSusceptible<-1/52
+
+Treatcost<-188.54
+AIDScost<-19000/52
+PrEPcost<-898.82
+RiskRed<-1-0.96
+
+
+PSAPrep<-function(repeats){
+for(a in 1:repeats) {
+
+  RiskRed<-1-0.96
+  NumHSHVIH<-rnorm(1,best_theta[1],4000)
+  NumHSH<-892955-NumHSHVIH#(INE)
+  #Encuesta hospitalaria
+  
+  #Distribucion de los pacientes por rango de CD4
+  j<-rdirichlet(1,c(best_theta[2], best_theta[3], best_theta[4]))
+  ACD4<-j[1]  #<200 (merged with CD4 200-350)
+  I7CD4<-j[2] #350-500
+  Rest<-j[3]  #>500
+  PropTR<-invbeta(best_theta[5],best_theta[5]*0.1)
+  G<-rnorm(1,best_theta[6], best_theta[6]*0.2) #Population growth rate 1/1000 anually
+  Woff <- 0.0038 #Proportion of people who go off PrEP. SiPrEP 15% anual, p=1-e^-rt
+  W<-0.00192    #Proportion of people who go on PrEP.
+  m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")  #Mortality general population
+  mVIH235<-rnorm(1,best_theta[7], best_theta[7]*0.2) #Alejos et al Medicine 2016
+  mVIH35<-rnorm(1,best_theta[8],best_theta[8]*0.2) #Alejos et al Medicine 2016
+  mAIDS<-rnorm(1,best_theta[9],best_theta[9]*0.2) #Parastu et al PLOSone 2018
+  Cvh<-rnorm(1,best_theta[10],best_theta[10]*0.2) #Partner change rate in the very high group 18-123/year Nichols et al. 2016
+  Ch<-rnorm(1,best_theta[11],best_theta[11]*0.2) #Partner change rate in the high group 5-18/year Nichols et al. 2016
+  Cl<-rnorm(1,best_theta[12],best_theta[12]*0.2)    #Partner change rate in the low group 0.5-5/year Nichols et al. 2016
+  Cvl<-rnorm(1,best_theta[13],best_theta[13]*0.2)  #Partner change rate in the very low group 0.04-0.5/year Nichols et al. 2016
+  j1<-rdirichlet(1,c(best_theta[14], best_theta[15], best_theta[16], best_theta[17]))
+  nvh<-j1[1]    #Proportion of the total population in each group 5-15% Nichols et al. 2016
+  nh<-j1[2]      # previo 0.4---30-50% Nichols et al. 2016
+  nl<-j1[3]      # previo 0.3---10-35% Nichols et al. 2016
+  nvl<-j1[4]    # previo 0.1---4-46%
+
+  B<-rnorm(1,best_theta[18], best_theta[18]*0.02)  #per partnership transmissibility Nichols et al 2016.
+  I12<-invbeta(best_theta[19],best_theta[19]*0.2) #1 month duration in stage 1 of HIV infection
+  I23<-invbeta(best_theta[20],best_theta[20]*0.2) #1 month duration in stage 2 of HIV infection
+  I34<-invbeta(best_theta[21],best_theta[21]*0.2) #1 month duration in stage 3 of HIV infection
+  I45<-invbeta(best_theta[22],best_theta[22]*0.2) #3 month duration in stage 4 of HIV infection
+  I56<-invbeta(best_theta[23],best_theta[23]*0.2)  #3 month duration in stage 5 of HIV infection
+  I67<-invbeta(best_theta[24],best_theta[24]*0.2)  #Chronic duration in stage 6 of HIV infection
+  I78<-invbeta(best_theta[25],best_theta[25]*0.2)  #Chronic duration in stage 7 of HIV infection
+  PTr<-c(invbeta(best_theta[26],best_theta[26]*0.2),invbeta(best_theta[27],best_theta[27]*0.2),
+         invbeta(best_theta[28],best_theta[28]*0.2)) #Nuñez et al AIDS 2018
+
+
+QP<-HIVSIMPREP(Age = Age, NoSem = NoSem, NumHSH = NumHSH, NumHSHVIH = NumHSHVIH,
+  ACD4 = ACD4, I7CD4 = I7CD4, Rest = Rest,
+  G = G, Woff = Woff, W = W,
+  m = m, mVIH235 = mVIH235, mVIH35 = mVIH35, mAIDS = mAIDS,
+  Cvh = Cvh, Ch = Ch, Cl = Cl, Cvl = Cvl,
+  nvh = nvh, nh = nh, nl = nl, nvl = nvl, B = B,
+  I12 = I12, I23 = I23, I34 = I34,
+  I45 = I45, I56 = I56, I67 = I67,
+  I78 = I78, PTr = PTr, years = years,
+  PropTR = PropTR, RiskRed = 1-0.96)
+
+MATP[a,]<-QALYCostP(QP)
+
+}
+
+MATP
+}
+```
+
+```{r}
+ncores<-detectCores()
+cl<-makeCluster(ncores, type="PSOCK")
+clusterSetRNGStream(cl, iseed=1)
+clusterExport(cl, c("MATP", "best_theta", "DistEdad", "Age", "years", "NoSem", "RiskRed","WAIDS", "WHIV", "WM350", "WTREAT", "WSusceptible", "Treatcost", "AIDScost", "PrEPcost","QALYCostP", "invbeta", "QalyCalc", "HIVSIMPREP", "PSAPrep", "CostCalc", "Woff", "W", "rdirichlet", "invbeta"))
+
+MAT1P3<-clusterCall(cl, fun=PSAPrep, repeats)
+#MAT1<-PSAPrep(10)
+#MAT2<-PSA(10)
+stopCluster(cl)
+x<-vector(length=2, mode="numeric")
+for (i in 1:ncores){x<-rbind(x,MAT1P3[[i]])}
+MAT2P3<-as.matrix(x[-1,])
+MAT2P3<-cbind(MAT2P3, "PREP-LEN")
+save(MAT2P3, file="MAT2LEN")
+MAT2P3
+```
+```{r}
+PSADATA1<-cbind(MAT2P3[,1:2], MAT2[,1:2])
+PSADATA1<-apply(PSADATA1, 2, as.numeric)
+colnames(PSADATA1)<-c("QalysP", "CostsP", "Qalys", "Costs")
+PSADATA1<-as_tibble(PSADATA1)
+PSADATA1<-PSADATA1%>%mutate(AQalys=QalysP-Qalys, 
+                            ACosts=CostsP-Costs,   
+                            ICERS=(ACosts)/(AQalys))
+PSADATA1<-PSADATA1[complete.cases(PSADATA1),]
+PSADATA1
+```
+
+
+```{r}
+PSADATA<-bind_rows(as.data.frame(MAT2P3), as.data.frame(MAT2))
+colnames(PSADATA)<-c("Qalys", "Costs", "PREP")
+PSADATA<-as_tibble(PSADATA)
+PSADATA<-PSADATA%>%filter(Qalys!="NaN" | Costs!="NaN")
+PSADATA[,1:2]<-lapply(PSADATA[,1:2],as.numeric)
+#PSADATA
+for (i in 1:nrow(PSADATA)) {if(PSADATA$PREP[i]=="PREP") PSADATA$PREP[i]<-"PREP-TDF"}
+
+g<-ggplot(PSADATA, aes(Qalys, Costs, color=PREP))+
+  geom_point(alpha=0.8)+
+  theme_classic()+
+  #ylim(-1000000000,100000000000)+
+  #xlim(-1000000000,100000000000)+
+  geom_hline(yintercept =0)+
+  geom_vline(xintercept =0)+
+  #scale_x_log10()+
+  #scale_y_log10()+
+  ylab("Costs in 2023 €")+
+  xlab("Qalys")+
+  ggtitle("Cost-effectiveness plane")+
+  theme(plot.title = element_text(hjust=0.5))
+  
+#tiff("CEA.tif", width=16, height=12, units="cm", res=300)
+g
+#dev.off
+```
+
+```{r}
+PSADATA2<-PSADATA1%>%filter(ICERS !=-Inf & ICERS !=Inf)
+g1<-ggplot(PSADATA2, aes(x=ICERS))+
+  stat_ecdf(na.rm=TRUE, position="identity")+
+  #geom_histogram()+
+  theme_classic()
+  
+g1
+```
+# Distribution of the ICERs
+```{r}
+summary(PSADATA2$ICERS)
+percentile<-ecdf(PSADATA2$ICERS)
+percentile(33895.59)
+percentile(0)
+```
+
+```{r}
+AnalBCEA<-bcea(as.matrix(PSADATA2[,c(1,3)]), as.matrix(PSADATA2[,c(2,4)]), ref=1, interventions=c("PrEP", "No-PrEP"), kmax=33895.59)
+```
+```{r}
+ceplane.plot(AnalBCEA, graph="ggplot2")
+```
+```{r}
+ceac.plot(AnalBCEA, graph="ggplot2")
+```

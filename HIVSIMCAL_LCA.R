@@ -1,7 +1,7 @@
 HIVSIMCAL<-function(repeats){
 # Dinamic HIV transmission model in HSH in Spain
 ##Values
-RiskRed<-0.1
+#RiskRed<-0.1
 DistEdad<-vector(length=85)
 DistEdad[1:10]<-0.114106384/10
 DistEdad[11:20]<-0.116645332/10
@@ -94,7 +94,7 @@ Params[30,k]<-PTr[1]
 Params[31,k]<-PTr[2]
 Params[32,k]<-PTr[3]
 
-RiskRed<-0.86
+#RiskRed<-0.86
 
 #200-500->500
 
@@ -105,7 +105,7 @@ RiskRed<-0.86
 Q<-HIVSIM(Age, NoSem, NumHSH, NumHSHVIH, 
           ACD4, I8CD4, I7CD4, Rest, 
           G, Woff, W, 
-          m, mAIDS, mVIH235, mVIH35, mTr, 
+          m, mAIDS, mVIH235, mVIH35, 
           Cvh, Ch, Cl, Cvl, 
           nvh, nh, nl, nvl, B,
           I12, I23, I34, 
@@ -123,7 +123,7 @@ QQ<-array(unlist(Q), dim=c(52,6291,20))
 Q1<-NULL
 for (t in 1:years){
   Q1<-rbind(Q1, as.data.frame(cbind(QQ[1:52,1,t],rowSums(QQ[1:52,2:511,t]),rowSums(QQ[1:52,512:1021,t]),rowSums(QQ[1:52,1022:1531,t]), rowSums(QQ[,1532:2041,t]), rowSums(QQ[,2042:2551,t]), rowSums(QQ[,2552:3061,t]), rowSums(QQ[,3062:3571,t]), rowSums(QQ[,3572:4081,t]), rowSums(QQ[,4082:4591,t]), rowSums(QQ[,4592:5101,t]), rowSums(QQ[,5102:5611,t]),
-                                    rowSums(QQ[,5611:5696,t]), rowSums(QQ[,5697:5780,t]), rowSums(QQ[,5781:5865,t]),
+                                    rowSums(QQ[,5612:5696,t]), rowSums(QQ[,5697:5780,t]), rowSums(QQ[,5781:5865,t]),
                                     rowSums(QQ[,5866:5950,t]), rowSums(QQ[,5951:6035,t]), rowSums(QQ[,6036:6120,t]), rowSums(QQ[,6121:6206,t]), rowSums(QQ[,6207:6291,t]))))
 }
 

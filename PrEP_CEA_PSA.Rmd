@@ -57,15 +57,15 @@ AIDScost<-19000/52
 PrEPcost<-21.74
 RiskRed<-1-0.86
 
-Woff<-0.12/52 #Proportion of people who go off PrEP 
-W<-0.3/52    #Proportion of people who go on PrEP 
+Woff<-0.014/52 #Proportion of people who go off PrEP 
+W<-0.089/52    #Proportion of people who go on PrEP 
 
 PSA<-function(repeats){
 for(i in 1:repeats) {
 
  NumHSHVIH<-rnorm(1,Bestparam[1],4000)
   NumHSH<-892955-NumHSHVIH#(INE)
-  #Encuesta hospitalaria
+  #Informe del continuo asistencial
   
   #Distribucion de los pacientes por rango de CD4
   j<-c(rnorm(1,Bestparam[2], Bestparam[2]*0.2),rnorm(1,Bestparam[3], Bestparam[3]*0.2),rnorm(1,Bestparam[4], Bestparam[4]*0.2),rnorm(1,Bestparam[5], Bestparam[5]*0.2))

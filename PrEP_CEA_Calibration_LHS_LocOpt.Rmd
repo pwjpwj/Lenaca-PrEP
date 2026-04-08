@@ -1,0 +1,445 @@
+---
+title: "Coste-eficacia de PrEP en España"
+author: "Philip Wikman"
+date: "15 de mayo de 2019"
+output: html_document
+---
+```{r setup, message=FALSE, warning=FALSE}
+# Core packages
+library(lhs)
+library(parallel)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+source("HIVSIM02exp05.R")
+source("invbeta_u.R")
+source("invgamma_u.R")
+source("rdirichlet_u.R")
+source("draw_params_from_u.R")
+source("sim_weekly_to_yearly.R")
+source("HIVSIMCAL_LCA_LHS.R")
+source("make_slices_HIVSIM.R")
+source("rs_at.R")
+
+set.seed(123)
+years<-5
+m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")
+DistEdad<-vector(length=85)
+DistEdad[1:10]<-0.114106384/10
+DistEdad[11:20]<-0.116645332/10
+DistEdad[21:30]<-0.281029342/10
+DistEdad[31:40]<-0.30552628/10
+DistEdad[41:50]<-0.112127906/10
+DistEdad[51:85]<-0.070564755/35
+RiskRed<-1-0.86
+
+obs_year <- data.frame(
+   Year = 1:5,
+   NewAIDS_obs    = c(196,161,141,136,101),
+   AIDSdeaths_obs = c(342,334,293,235,240)*0.26,  #0.26 proportion in Jarrin AIDS 2024. 531,513,385,342,
+   NewInf_obs     = c(2406,1713,1741,1810,1757)*1.075# Asumo que la fracción no diagnosticada es del 7.5%, por lo que a los nuevos diagnósticos los incremento un 7.5%. Fuente Informe VIH 2023. 2348,2604 (2013 y 2014) 2457,2529,2532,2431,
+)
+```
+
+ 
+```{r}
+load("ResultParam")
+
+# ResultParam: list of length 20 from your cluster run
+# Each ResultParam[[i]] is list(R_block, Params_block)
+
+traj_blocks  <- lapply(ResultParam, `[[`, 1L)   # list of lists of data.frames
+all_trajs    <- unlist(traj_blocks, recursive = FALSE)
+
+param_blocks <- lapply(ResultParam, `[[`, 2L)   # each 32 x repeats
+Params_all   <- do.call(cbind, param_blocks)   # 32 x N_runs
+N_runs <- length(all_trajs)
+dim(Params_all)  # 32 x N_runs
+```
+
+```{r}
+
+rmse_newAIDS   <- numeric(N_runs)
+rmse_AIDSdeath <- numeric(N_runs)
+rmse_newInf    <- numeric(N_runs)
+
+for (i in seq_len(N_runs)) {
+  sim_week <- all_trajs[[i]]                             # weekly simulation
+  sim_year <- sim_weekly_to_yearly(sim_week, years = years, weeks_per_year = 52L)
+  
+  df <- merge(
+    obs_year,
+    sim_year,
+    by = "Year",
+    all = FALSE
+  )
+  
+ e1 <- (df$NewAIDS_sim    - df$NewAIDS_obs)    / mean(df$NewAIDS_obs)
+ e2 <- (df$AIDSdeaths_sim - df$AIDSdeaths_obs) / mean(df$AIDSdeaths_obs)
+e3 <- (df$NewInf_sim     - df$NewInf_obs)     / mean(df$NewInf_obs)
+  
+  rmse_newAIDS[i]   <- sqrt(mean(e1^2, na.rm = TRUE))
+  rmse_AIDSdeath[i] <- sqrt(mean(e2^2, na.rm = TRUE))
+  rmse_newInf[i]    <- sqrt(mean(e3^2, na.rm = TRUE))
+}
+
+rmse_max <- pmax(rmse_newAIDS, rmse_AIDSdeath, rmse_newInf)
+
+best_idx_global <- which.min(rmse_max)
+
+best_idx_global
+rmse_max[best_idx_global]
+c(
+  NewAIDS   = rmse_newAIDS[best_idx_global],
+  AIDSdeath = rmse_AIDSdeath[best_idx_global],
+  NewInf    = rmse_newInf[best_idx_global]
+)
+
+best_params_global <- Params_all[, best_idx_global]
+best_params_global
+
+
+```
+```{r}
+## ----local_optim_helpers, message=FALSE, warning=FALSE------------------------
+
+simulate_weekly_from_theta <- function(theta, m, DistEdad, RiskRed) {
+  Age   <- 85L
+  NoSem <- 52L
+  years_local <- years   # use the global 'years' you defined (5)
+  
+  # Unpack theta following your Params_all row convention
+  NumHSHVIH <- theta[1]
+  NumHSH    <- 892955 - NumHSHVIH
+  
+  ACD4      <- theta[2]
+  I7CD4     <- theta[3]
+  Rest      <- theta[4]
+  
+  PropTR    <- theta[5]
+  G         <- theta[6]
+  Woff      <- 0.0038 #Proportion of people who go off PrEP. SiPrEP 15% anual, p=1-e^-rt
+  W<-0.00192    #Proportion of people who go on PrEP. SiPrEP describe 5000-7000 nuevos anuales y eso supone una probabilidad alrededor de 0.1 anual.
+
+  mVIH235   <- theta[7]
+  mVIH35    <- theta[8]
+  mAIDS     <- theta[9]
+  
+  Cvh       <- theta[10]
+  Ch        <- theta[11]
+  Cl        <- theta[12]
+  Cvl       <- theta[13]
+  
+  nvh       <- theta[14]
+  nh        <- theta[15]
+  nl        <- theta[16]
+  nvl       <- theta[17]
+  
+  B         <- theta[18]
+  I12       <- theta[19]
+  I23       <- theta[20]
+  I34       <- theta[21]
+  I45       <- theta[22]
+  I56       <- theta[23]
+  I67       <- theta[24]
+  I78       <- theta[25]
+  
+  PTr       <- theta[26:28]
+  
+  # Run the model
+  Q <- HIVSIM(
+    Age, NoSem, NumHSH, NumHSHVIH,
+    ACD4, I7CD4, Rest,
+    G, Woff, W,
+    m, mVIH235, mVIH35, mAIDS,
+    Cvh, Ch, Cl, Cvl,
+    nvh, nh, nl, nvl, B,
+    I12, I23, I34,
+    I45,
+    I56, I67,
+    I78, PTr, years_local, PropTR,
+    DistEdad, RiskRed
+  )
+  
+  Slices <- make_slices_HIVSIM(Age)
+  
+  QQ <- array(
+    as.numeric(unlist(lapply(Q, as.matrix))),
+    dim = c(52L, Slices$ncol_expected, years_local)
+  )
+  
+  nrows <- years_local * 52L
+  Qmat  <- matrix(0, nrow = nrows, ncol = 19L)
+  colnames(Qmat) <- c(
+    "Weeks", "Susceptible", "Inf1", "Inf2", "Inf3", "Inf4",
+    "Inf5", "Inf6", "Inf7", "AIDS", "Treated", "Dead", "NewAIDS",
+    "Lvh", "Lh", "Ll", "Lvl", "New_HIV_inf", "New_HIV_treatments"
+  )
+  
+  r0 <- 0L
+  for (t in seq_len(years_local)) {
+    rr <- r0 + seq_len(52L)
+    Qmat[rr, 1L]  <- rr
+    Qmat[rr, 2L]  <- rs_at(QQ, Slices$S0,   t)
+    Qmat[rr, 3L]  <- rs_at(QQ, Slices$I1,   t)
+    Qmat[rr, 4L]  <- rs_at(QQ, Slices$I2,   t)
+    Qmat[rr, 5L]  <- rs_at(QQ, Slices$I3,   t)
+    Qmat[rr, 6L]  <- rs_at(QQ, Slices$I4,   t)
+    Qmat[rr, 7L]  <- rs_at(QQ, Slices$I5,   t)
+    Qmat[rr, 8L]  <- rs_at(QQ, Slices$I6,   t)
+    Qmat[rr, 9L]  <- rs_at(QQ, Slices$I7,   t)
+    Qmat[rr,10L]  <- rs_at(QQ, Slices$AIDS, t)
+    
+    Qmat[rr,11L]  <- rs_at(QQ, Slices$Treated, t)
+    Qmat[rr,12L]  <- rs_at(QQ, Slices$Dead,    t)
+    Qmat[rr,13L]  <- rs_at(QQ, Slices$NewAIDS, t)
+    
+    Qmat[rr,14L]  <- rs_at(QQ, Slices$FI_vh, t)
+    Qmat[rr,15L]  <- rs_at(QQ, Slices$FI_h,  t)
+    Qmat[rr,16L]  <- rs_at(QQ, Slices$FI_l,  t)
+    Qmat[rr,17L]  <- rs_at(QQ, Slices$FI_vl, t)
+    
+    Qmat[rr,18L]  <- rs_at(QQ, Slices$NewHIV,        t)
+    Qmat[rr,19L]  <- rs_at(QQ, Slices$NewTreatments, t)
+    r0 <- r0 + 52L
+  }
+  
+  as.data.frame(Qmat, check.names = FALSE)
+}
+
+```
+```{r}
+## ----objective_fn, message=FALSE, warning=FALSE-------------------------------
+
+objective_theta <- function(theta, m, DistEdad, RiskRed, obs_year) {
+
+  
+  # Wrap everything in a tryCatch so errors become a large penalty
+  res <- tryCatch({
+    
+    sim_week <- simulate_weekly_from_theta(theta, m, DistEdad, RiskRed)
+    
+    # If weekly simulation is crazy, penalise
+    if (any(!is.finite(unlist(sim_week)))) {
+      return(1e15)
+    }
+    
+    sim_year <- sim_weekly_to_yearly(sim_week, years = years, weeks_per_year = 52L)
+    
+    if (any(!is.finite(unlist(sim_year)))) {
+      return(1e16)
+    }
+    
+    df <- merge(
+      obs_year,
+      sim_year,
+      by = "Year",
+      all = FALSE
+    )
+    
+    # No overlapping years → nothing to compare → penalise
+    if (nrow(df) == 0L) {
+      return(1e17)
+    }
+    
+    # NORMALIZED errors (percentage-based)
+    e1 <- (df$NewAIDS_sim    - df$NewAIDS_obs)    / mean(df$NewAIDS_obs)
+    e2 <- (df$AIDSdeaths_sim - df$AIDSdeaths_obs) / mean(df$AIDSdeaths_obs)
+    e3 <- (df$NewInf_sim     - df$NewInf_obs)     / mean(df$NewInf_obs)
+
+    
+    # If all NA in any outcome, mean(..., na.rm=TRUE) becomes NaN → penalise
+    if (all(is.na(e1)) || all(is.na(e2)) || all(is.na(e3))) {
+      return(1e18)
+    }
+    
+    rmse_newAIDS   <- sqrt(mean(e1^2, na.rm = TRUE))
+    rmse_AIDSdeath <- sqrt(mean(e2^2, na.rm = TRUE))
+    rmse_newInf    <- sqrt(mean(e3^2, na.rm = TRUE))
+    
+    rmses <- c(rmse_newAIDS, rmse_AIDSdeath, rmse_newInf)
+    
+    # If any RMSE is non-finite, penalise
+    if (!all(is.finite(rmses))) {
+      return(1e19)
+    }
+    
+    val <- max(rmses)
+    
+    # Final safety check
+    if (!is.finite(val) || length(val) != 1L) {
+      return(1e20)
+    }
+    
+    val
+  },
+  error = function(e) {
+    # Any error in the simulation/objective → large penalty
+    1e21
+  })
+  
+  res
+}
+```
+
+```{r}
+## ----local_optim_run, message=FALSE, warning=FALSE----------------------------
+
+# Order runs by global minimax RMSE
+order_best <- order(rmse_max)
+
+K_start <- min(10, N_runs)   # use up to 5 best LHS runs (or fewer if N_runs < 5)
+start_indices <- order_best[seq_len(K_start)]
+
+# Bounds for each parameter from LHS distribution (1% and 99% quantiles)
+lower_bounds <- apply(Params_all, 1, quantile, probs = 0.01, na.rm = TRUE)
+upper_bounds <- apply(Params_all, 1, quantile, probs = 0.99, na.rm = TRUE)
+
+
+run_one_optim <- function(idx0,
+                          Params_all,
+                          lower_bounds,
+                          upper_bounds,
+                          m,
+                          DistEdad,
+                          RiskRed,
+                          obs_year) {
+  theta0 <- Params_all[, idx0]
+  theta0 <- pmin(pmax(theta0, lower_bounds), upper_bounds)  # enforce bounds
+  cat("Worker starting local search from LHS run", idx0, "\n")
+  
+  optim(
+    par    = theta0,
+    fn     = objective_theta,
+    method = "L-BFGS-B",
+    lower  = lower_bounds,
+    upper  = upper_bounds,
+    m      = m,
+    DistEdad = DistEdad,
+    RiskRed  = RiskRed,
+    obs_year = obs_year,
+    control  = list(maxit = 10, factr = 1e7, trace = 0)
+  )
+}
+
+cl_opt <- makePSOCKcluster(10)
+
+# FIX 1: Load libraries on workers
+clusterEvalQ(cl_opt, {
+  library(dplyr)
+  library(tidyr)
+})
+
+# FIX 2: Source all files on workers
+clusterEvalQ(cl_opt, {
+  source("HIVSIM02exp05.R")
+  source("sim_weekly_to_yearly.R")
+  source("make_slices_HIVSIM.R")
+  source("rs_at.R")
+})
+
+# FIX 3: Export everything
+clusterExport(cl_opt, c(
+  "objective_theta",
+  "simulate_weekly_from_theta",
+  "Params_all",
+  "lower_bounds",
+  "upper_bounds",
+  "m", "DistEdad", "RiskRed", "obs_year",
+  "years"
+))
+
+# FIX 4: Verify workers can run the objective
+clusterEvalQ(cl_opt, {
+  test <- objective_theta(Params_all[,1], m, DistEdad, RiskRed, obs_year)
+  cat("Worker test:", test, "\n")
+})
+
+clusterSetRNGStream(cl_opt, 123)
+
+opt_results <- parLapply(
+  cl_opt,
+  X = start_indices,
+  fun = run_one_optim,
+  Params_all  = Params_all,
+  lower_bounds = lower_bounds,
+  upper_bounds = upper_bounds,
+  m         = m,
+  DistEdad  = DistEdad,
+  RiskRed   = RiskRed,
+  obs_year  = obs_year
+)
+
+stopCluster(cl_opt)
+
+# Extract results
+final_vals   <- sapply(opt_results, `[[`, "value")
+best_loc_idx <- which.min(final_vals)
+
+best_local <- opt_results[[best_loc_idx]]
+best_theta <- best_local$par
+best_value <- best_local$value
+
+best_value
+```
+```{r}
+## ----plot_best_local, fig.height=6, message=FALSE, warning=FALSE-------------
+
+best_sim_week <- simulate_weekly_from_theta(best_theta, m, DistEdad, RiskRed)
+best_sim_year <- sim_weekly_to_yearly(best_sim_week, years = years, weeks_per_year = 52L)
+
+plot_df <- obs_year %>%
+  inner_join(best_sim_year, by = "Year") %>%
+  transmute(
+    Year,
+    NewAIDS_obs,
+    NewAIDS_sim,
+    AIDSdeaths_obs,
+    AIDSdeaths_sim,
+    NewInf_obs,
+    NewInf_sim
+  ) %>%
+  pivot_longer(
+    cols = -Year,
+    names_to = c("outcome", "type"),
+    names_pattern = "(.*)_(obs|sim)$",
+    values_to = "value"
+  ) %>%
+  mutate(
+    outcome = dplyr::case_when(
+      outcome == "NewAIDS"    ~ "New AIDS cases",
+      #outcome == "AIDSdeaths" ~ "AIDS deaths",
+      outcome == "NewInf"     ~ "New HIV infections",
+      TRUE                    ~ outcome
+    ),
+    type = ifelse(type == "obs", "Observed", "Simulated")
+  )
+
+limits_df <- data.frame(
+  outcome = c("New AIDS cases", "New AIDS cases", "New HIV infections", "New HIV infections"),
+  value   = c(0, 500, 0, 3000),
+  Year    = min(plot_df$Year),
+  type    = "Observed"
+)
+
+ggplot(plot_df, aes(x = Year, y = value, colour = type)) +
+  geom_blank(data = limits_df) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ outcome, scales="free_y", ncol = 1) +
+  scale_x_continuous(breaks = 1:5, labels = 2019:2023) +
+  labs(
+    x = "Year",
+    y = "Annual count",
+    colour = "",
+    title = "Observed vs simulated (yearly) after local optimization"
+  ) +
+  theme_minimal()
+
+```
+```{r}
+save(best_theta, file="Best_theta_Param")
+```
+
+
+
