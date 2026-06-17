@@ -9,8 +9,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(cowplot)
-load("MAT2_LHS")
-load("MAT2LEN")
+load("MAT2_LHS_R")
+load("MAT2LEN_R")
 
 ```
 
@@ -20,9 +20,6 @@ colnames(PSADATA)<-c("Qalys", "Costs", "PREP")
 PSADATA<-as_tibble(PSADATA)
 PSADATA<-PSADATA%>%filter(Qalys!="NaN" | Costs!="NaN")
 PSADATA[,1:2]<-lapply(PSADATA[,1:2],as.numeric)
-#PSADATA
-#PSADATA$PREP<-chartr("CBV", "CAB", PSADATA$PREP)
-#for (i in 1:nrow(PSADATA)) {if(PSADATA$PREP[i]=="PREP-TDF") #PSADATA$PREP[i]<-"PREP-TDx"}
 ```
 
 ```{r}
@@ -30,11 +27,6 @@ PSADATA[,1:2]<-lapply(PSADATA[,1:2],as.numeric)
 g<-ggplot(PSADATA, aes(Qalys, Costs, color=PREP))+
   geom_point(alpha=0.4, size=1)+
   theme_classic()+
-  #ylim(-1000000000,100000000000)+
-  #xlim(-1000000000,100000000000)+
-  #geom_abline(slope=25128, intercept=0)+
-  #geom_hline(yintercept =0)+
-  #geom_vline(xintercept =0)+
   scale_x_log10()+
   scale_y_log10()+
   ylab("Costs in 2023 €")+
@@ -138,12 +130,13 @@ dev.off
 ```
 
 ```{r}
-combined<-plot_grid(g, g1, nrow=2, labels=c("A","B"))
+# g2 is generated in the file PrEP_CEA_LHS
+combined<-plot_grid(g1, g2, nrow=2, labels=c("A","B"))
 combined
 ```
 
 ```{r}
-tiff("Combined_Lancet_HIV.tiff", width=12, height=8, units="in", res=300)
+tiff("Combined_Lancet_HIV_R.tiff", width=8, height=12, units="in", res=300)
 combined
 dev.off
 ```

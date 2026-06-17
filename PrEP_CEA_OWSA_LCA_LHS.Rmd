@@ -81,10 +81,10 @@ WTREAT<-0.96/52
 WSusceptible<-1/52
 Treatcost<-188.54
 AIDScost<-19000/52
-PrEPcost<-26.94 # TDF/FTC 26.94, 
+PrEPcost<-26.34 # TDF/FTC 26.34, 
 ```
 ```{r}
-OWSAmat<-matrix(ncol=4, nrow=29, dimnames=list(NULL, c("QALYsl", "Costsl", "QALYsh", "Costsh")))
+OWSAmat<-matrix(ncol=4, nrow=31, dimnames=list(NULL, c("QALYsl", "Costsl", "QALYsh", "Costsh")))
 ```
 
 ## 1. NumHSHVIH
@@ -212,7 +212,7 @@ I7CD4=best_theta[3]
 ```{r}
 Rest<-best_theta[4]-best_theta[4]*0.2
 Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
-                 ACD4, I7CD4, Rest, 
+                 ACD4, I7CD4, Rest=best_theta[4]-best_theta[4]*0.2, 
                  G, Woff, W, 
                  m, mVIH235, mVIH35, mAIDS,
                  Cvh, Ch, Cl, Cvl, 
@@ -261,7 +261,8 @@ OWSAmat[5,1:2]<-l6
 
 ### High estimate
 ```{r}
-PropTR<-min(1, best_theta[5]*1.2)
+PropTR<-min(0.9999, best_theta[5]+best_theta[5]*0.2)
+
 Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
                  ACD4, I7CD4, Rest, 
                  G, Woff, W, 
@@ -270,7 +271,7 @@ Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
                  nvh, nh, nl, nvl, B,
                  I12, I23, I34, 
                  I45, I56, I67, 
-                 I78, PTr, years, PropTR=min(1, best_theta[5]*1.2), RiskRed = 1-0.86)
+                 I78, PTr, years, PropTR=min(0.9999, best_theta[5]+best_theta[5]*0.2), RiskRed = 1-0.86)
 
 h6<-QALYCostP(Q)
 OWSAmat[5,3:4]<-h6
@@ -1117,6 +1118,70 @@ OWSAmat[29,1:2]<-l33
 OWSAmat
 ```
 
+## 30. W (PrEP uptake rate)
+### Low estimate
+```{r}
+W_base <- 0.00192
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
+                 ACD4, I7CD4, Rest,
+                 G, Woff, W = W_base * 0.8,
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl,
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34,
+                 I45, I56, I67,
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+l34<-QALYCostP(Q)
+OWSAmat[30,1:2]<-l34
+```
+### High estimate
+```{r}
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
+                 ACD4, I7CD4, Rest,
+                 G, Woff, W = W_base * 1.2,
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl,
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34,
+                 I45, I56, I67,
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+h34<-QALYCostP(Q)
+OWSAmat[30,3:4]<-h34
+OWSAmat
+```
+
+## 31. Woff (PrEP discontinuation rate)
+### Low estimate
+```{r}
+Woff_base <- 0.0038
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
+                 ACD4, I7CD4, Rest,
+                 G, Woff = Woff_base * 0.8, W,
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl,
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34,
+                 I45, I56, I67,
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+l35<-QALYCostP(Q)
+OWSAmat[31,1:2]<-l35
+```
+### High estimate
+```{r}
+Q<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
+                 ACD4, I7CD4, Rest,
+                 G, Woff = Woff_base * 1.2, W,
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl,
+                 nvh, nh, nl, nvl, B,
+                 I12, I23, I34,
+                 I45, I56, I67,
+                 I78, PTr, years, PropTR, RiskRed = 1-0.86)
+h35<-QALYCostP(Q)
+OWSAmat[31,3:4]<-h35
+OWSAmat
+```
+
 ############################################################################################################-------Análisis OWA PrEP LCA----------############################################
 #############################################################################################
 ```{r}
@@ -1124,11 +1189,11 @@ source("HIVSIM05.R")
 source("QALYCostP.R")
 Woff      <- 0.0038 #Proportion of people who go off PrEP. SiPrEP 15% anual, p=1-e^-rt
 W<-0.00192    #Proportion of people who go on PrEP. SiPrEP describe 5000-7000 nuevos anuales y eso supone una probabilidad alrededor de 0.1 anual.
-PrEPcost<-898.82 #LCA 898.82  
+PrEPcost<-898.25 #LCA 898.25  
 RiskRed<-1-0.96 
 ```
 ```{r}
-OWSAmatP<-matrix(ncol=4, nrow=29, dimnames=list(NULL, c("QALYslP", "CostslP", "QALYshP", "CostshP")))
+OWSAmatP<-matrix(ncol=4, nrow=31, dimnames=list(NULL, c("QALYslP", "CostslP", "QALYshP", "CostshP")))
 ```
 
 
@@ -1257,7 +1322,7 @@ I7CD4<-best_theta[3]
 ```{r}
 Rest<-best_theta[4]-best_theta[4]*0.2
 QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
-                 ACD4, I7CD4, Rest, 
+                 ACD4, I7CD4, Rest=best_theta[4]-best_theta[4]*0.2, 
                  G, Woff, W, 
                  m, mVIH235, mVIH35, mAIDS,
                  Cvh, Ch, Cl, Cvl, 
@@ -1273,7 +1338,7 @@ OWSAmatP[4,1:2]<-l5P
 ```{r}
 Rest<-best_theta[4]+best_theta[4]*0.2
 QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
-                 ACD4, I7CD4, Rest, 
+                 ACD4, I7CD4, Rest=best_theta[4]+best_theta[4]*0.2, 
                  G, Woff, W, 
                  m, mVIH235, mVIH35, mAIDS,
                  Cvh, Ch, Cl, Cvl, 
@@ -1306,7 +1371,7 @@ OWSAmatP[5,1:2]<-l6P
 
 ### High estimate
 ```{r}
-PropTR<-min(1, best_theta[5]*1.2)
+PropTR<-min(0.9999, best_theta[5]+best_theta[5]*0.2)
 QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH, 
                  ACD4, I7CD4, Rest, 
                  G, Woff, W, 
@@ -1315,7 +1380,8 @@ QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
                  nvh, nh, nl, nvl, B, RiskRed=1-0.96,
                  I12, I23, I34, 
                  I45, I56, I67, 
-                 I78, PTr, years, PropTR=min(1, best_theta[5]*1.2))
+                 I78, PTr, years, PropTR=min(0.9999, best_theta[5]+best_theta[5]*0.2))
+               
 h6P<-QALYCostP(QP)
 OWSAmatP[5,3:4]<-h6P
 OWSAmatP
@@ -2159,6 +2225,69 @@ OWSAmatP[29,1:2]<-l33
 OWSAmatP
 ```
 
+## 30. W (PrEP uptake rate)
+### Low estimate
+```{r}
+W_base <- 0.00192
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
+                 ACD4, I7CD4, Rest,
+                 G, Woff, W = W_base * 0.8,
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl,
+                 nvh, nh, nl, nvl, B, RiskRed = 1-0.96,
+                 I12, I23, I34,
+                 I45, I56, I67,
+                 I78, PTr, years, PropTR)
+l34P<-QALYCostP(QP)
+OWSAmatP[30,1:2]<-l34P
+```
+### High estimate
+```{r}
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
+                 ACD4, I7CD4, Rest,
+                 G, Woff, W = W_base * 1.2,
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl,
+                 nvh, nh, nl, nvl, B, RiskRed = 1-0.96,
+                 I12, I23, I34,
+                 I45, I56, I67,
+                 I78, PTr, years, PropTR)
+h34P<-QALYCostP(QP)
+OWSAmatP[30,3:4]<-h34P
+OWSAmatP
+```
+
+## 31. Woff (PrEP discontinuation rate)
+### Low estimate
+```{r}
+Woff_base <- 0.0038
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
+                 ACD4, I7CD4, Rest,
+                 G, Woff = Woff_base * 0.8, W,
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl,
+                 nvh, nh, nl, nvl, B, RiskRed = 1-0.96,
+                 I12, I23, I34,
+                 I45, I56, I67,
+                 I78, PTr, years, PropTR)
+l35P<-QALYCostP(QP)
+OWSAmatP[31,1:2]<-l35P
+```
+### High estimate
+```{r}
+QP<-HIVSIMPREP(Age, NoSem, NumHSH, NumHSHVIH,
+                 ACD4, I7CD4, Rest,
+                 G, Woff = Woff_base * 1.2, W,
+                 m, mVIH235, mVIH35, mAIDS,
+                 Cvh, Ch, Cl, Cvl,
+                 nvh, nh, nl, nvl, B, RiskRed = 1-0.96,
+                 I12, I23, I34,
+                 I45, I56, I67,
+                 I78, PTr, years, PropTR)
+h35P<-QALYCostP(QP)
+OWSAmatP[31,3:4]<-h35P
+OWSAmatP
+```
 
 # Combine, save and export
 ```{r}
@@ -2169,7 +2298,7 @@ load("OWSAmat_LCA")
 
 OWSADAT<-cbind(OWSAmat, OWSAmatP)
 save(OWSADAT, file="OWSADAT_TDF_LCA")
-tail(OWSADAT)
+head(OWSADAT)
 ```
 
 ```{r}
@@ -2177,7 +2306,7 @@ ICER_Low<-(OWSADAT[,6]-OWSADAT[,2])/(OWSADAT[,5]-OWSADAT[,1])
 ICER_High<-(OWSADAT[,8]-OWSADAT[,4])/(OWSADAT[,7]-OWSADAT[,3])
 ICER_High
 ICER_Low
-Variable<-c("HIV-MSM", "ACD4", "I7CD4", "Rest","PropTR", "G","mVIH235","mVIH35","mAIDS","Cvh","Ch","Cl","Cvl","nvh","nh","nl","nvl","B","I12","I23","I34","I45","I56","I67","I78","PTr1", "PTr2", "PTr3", "Adherence")
+Variable<-c("HIV-MSM", "ACD4", "I7CD4", "Rest","PropTR", "G","mVIH235","mVIH35","mAIDS","Cvh","Ch","Cl","Cvl","nvh","nh","nl","nvl","B","I12","I23","I34","I45","I56","I67","I78","PTr1", "PTr2", "PTr3", "Adherence", "W", "Woff")
 ICER<-4783564
 ICERS<-NULL
 ICERS<-data.frame(Variable, ICER_High, ICER_Low, ICER)
@@ -2188,24 +2317,128 @@ ICERS$Direction <- ifelse(ICERS$ICER_High > ICERS$ICER_Low,
                           "Increase ICER",
                           "Decrease ICER")
 
-OWSATDFLCA <- ICERS %>%
-  mutate(Variable = fct_reorder(Variable, dif)) %>%
-  ggplot(aes(x = Variable, y = ICER,
+# Cap extreme ICERs so the tornado plot is readable
+axis_cap <- max(
+  ICERS$ICER_High[is.finite(ICERS$ICER_High) & ICERS$ICER_High < quantile(ICERS$ICER_High[is.finite(ICERS$ICER_High)], 0.95) * 2],
+  ICERS$ICER_Low[is.finite(ICERS$ICER_Low)],
+  na.rm = TRUE
+) * 1.15
+
+# Descriptive but short labels for the tornado plot
+ICERS$Variable <- recode(ICERS$Variable,
+  "HIV-MSM"   = "GBMSM living with HIV",
+  "ACD4"      = "Prop. CD4 < 200",
+  "I7CD4"     = "Prop. CD4 200\u2013350",
+  "Rest"      = "Prop. CD4 > 350",
+  "PropTR"    = "Prop. on ART",
+  "G"         = "Population growth",
+  "mVIH235"   = "Mortality (CD4 200\u2013350)",
+  "mVIH35"    = "Mortality (CD4 > 350)",
+  "mAIDS"     = "AIDS mortality",
+  "Cvh"       = "Partners (very high risk)",
+  "Ch"        = "Partners (high risk)",
+  "Cl"        = "Partners (low risk)",
+  "Cvl"       = "Partners (very low risk)",
+  "nvh"       = "Prop. very high risk",
+  "nh"        = "Prop. high risk",
+  "nl"        = "Prop. low risk",
+  "nvl"       = "Prop. very low risk",
+  "B"         = "Transmission prob.",
+  "I12"       = "Progression I1\u2192I2",
+  "I23"       = "Progression I2\u2192I3",
+  "I34"       = "Progression I3\u2192I4",
+  "I45"       = "Progression I4\u2192I5",
+  "I56"       = "Progression I5\u2192I6",
+  "I67"       = "Progression I6\u2192I7",
+  "I78"       = "Progression I7\u2192I8",
+  "PTr1"      = "ART rate (AIDS)",
+  "PTr2"      = "ART rate (CD4 200\u2013350)",
+  "PTr3"      = "ART rate (CD4 > 350)",
+  "Adherence" = "PrEP adherence",
+  "W"         = "PrEP uptake rate",
+  "Woff"      = "PrEP discontinuation rate"
+)
+
+ICERS_plot <- ICERS
+ICERS_plot$capped_high <- !is.finite(ICERS_plot$ICER_High) | ICERS_plot$ICER_High > axis_cap
+ICERS_plot$capped_low  <- !is.finite(ICERS_plot$ICER_Low)  | ICERS_plot$ICER_Low  > axis_cap
+ICERS_plot$ICER_High[ICERS_plot$capped_high] <- axis_cap
+ICERS_plot$ICER_Low[ICERS_plot$capped_low]   <- axis_cap
+
+# Reorder Variable by range, then identify capped bars
+ICERS_plot$Variable <- fct_reorder(ICERS_plot$Variable, ICERS_plot$dif)
+capped_rows <- ICERS_plot[ICERS_plot$capped_high | ICERS_plot$capped_low, ]
+
+OWSATDFLCA <- ggplot(ICERS_plot, aes(x = Variable, y = ICER,
              ymin = ICER_Low, ymax = ICER_High,
              colour = Direction)) +
   geom_linerange(size = 3) +
   coord_flip() +
   geom_hline(yintercept = 4293887, col = "blue") +
   geom_hline(yintercept = 33895.59, col = "red") +
+  annotate("segment",
+           x = capped_rows$Variable, xend = capped_rows$Variable,
+           y = axis_cap * 0.92, yend = axis_cap,
+           arrow = arrow(length = unit(0.15, "cm"), type = "closed"),
+           colour = "grey30") +
   scale_colour_manual(values = c("Increase ICER" = "#D55E00",
                                  "Decrease ICER" = "#0072B2")) +
   ylab("ICER") +
   theme_classic() +
   theme(plot.margin = unit(c(1,1,1,1), "cm"))
 
-tiff("OWSATDF_LCA_01.tif", width=16, height=12, units="cm", res=300)
+tiff("OWSATDF_LCA_01_R.tif", width=16, height=12, units="cm", res=300)
 OWSATDFLCA
 save(OWSATDFLCA, file="OWSATDF_LCA")
 dev.off
 
+```
+
+## OWSA results table (Word export)
+```{r owsa-word-table}
+library(flextable)
+library(officer)
+
+# Base values for all 31 parameters
+base_vals <- c(
+  best_theta,                        # 1-28: calibrated parameters
+  1 - 0.96,                          # 29: Adherence (RiskRed for LCA)
+  0.00192,                           # 30: W (PrEP uptake rate)
+  0.0038                             # 31: Woff (PrEP discontinuation rate)
+)
+
+owsa_tbl <- data.frame(
+  Parameter  = as.character(ICERS$Variable),
+  Base_Value = base_vals,
+  Low_Value  = base_vals * 0.8,
+  High_Value = base_vals * 1.2,
+  ICER_Low   = ICERS$ICER_Low,
+  ICER_High  = ICERS$ICER_High
+)
+
+# Adherence low was computed as RiskRed / 0.99, not *0.8
+owsa_tbl$Low_Value[owsa_tbl$Parameter == "PrEP adherence"]  <- (1 - 0.96) / 0.99
+owsa_tbl$High_Value[owsa_tbl$Parameter == "PrEP adherence"] <- 1 - 0.96
+
+ft_owsa <- flextable(owsa_tbl) |>
+  set_header_labels(
+    Parameter  = "Parameter",
+    Base_Value = "Base Value",
+    Low_Value  = "Low Value",
+    High_Value = "High Value",
+    ICER_Low   = "ICER (Low)",
+    ICER_High  = "ICER (High)"
+  ) |>
+  colformat_double(j = c("Base_Value", "Low_Value", "High_Value"), digits = 6) |>
+  colformat_double(j = c("ICER_Low", "ICER_High"), digits = 0, big.mark = ",") |>
+  autofit() |>
+  theme_vanilla()
+
+# Export to Word
+doc <- read_docx() |>
+  body_add_par("Table: One-Way Sensitivity Analysis Results", style = "heading 1") |>
+  body_add_flextable(ft_owsa)
+
+print(doc, target = "OWSA_Table.docx")
+ft_owsa
 ```

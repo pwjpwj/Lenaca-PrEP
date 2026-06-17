@@ -31,7 +31,7 @@ load("Best_theta_Param")
 ```{r}
 #MAT<-matrix(data=NA, nrow=i, ncol=2)
 
-repeats<-50 # this will be multiplied by each core.
+repeats<-5 # this will be multiplied by each core.
 MAT<-matrix(data=NA, nrow=repeats, ncol=2)
 DistEdad<-vector(length=85)
 DistEdad[1:10]<-0.114106384/10
@@ -54,8 +54,7 @@ WSusceptible<-1/52
 
 Treatcost<-188.54
 AIDScost<-19000/52
-PrEPcost<-26.94
-RiskRed<-1-0.86
+PrEPcost<-26.34
 m<-read.csv("MortPobGen.csv", header=TRUE, sep=";")
 Woff <- 0.0038 #Proportion of people who go off PrEP. SiPrEP 15% anual, p=1-e^-rt
 W<-0.00192    #Proportion of people who go on PrEP. SiPrEP describe 5000-7000 nuevos anuales y eso supone una probabilidad alrededor de 0.1 anual.RiskRed<-1-0.86 # 0.86 for TDF, 0.934 for TAF and 0.952 for CBV 0.96 for LCA
@@ -85,7 +84,7 @@ for(i in 1:repeats) {
   Cl<-rnorm(1,best_theta[12],best_theta[12]*0.2)    #Partner change rate in the low group 0.5-5/year Nichols et al. 2016
   Cvl<-rnorm(1,best_theta[13],best_theta[13]*0.2)  #Partner change rate in the very low group 0.04-0.5/year Nichols et al. 2016
   
-  j1<-rdirichlet(1,c(best_theta[14], best_theta[15], best_theta[16], best_theta[17]))
+  j1<-rdirichlet(1,c(best_theta[14], best_theta[15], best_theta[16], best_theta[17]))*10
   nvh<-j1[1]    #Proportion of the total population in each group 5-15% Nichols et al. 2016
   nh<-j1[2]      # previo 0.4---30-50% Nichols et al. 2016
   nl<-j1[3]      # previo 0.3---10-35% Nichols et al. 2016
@@ -100,6 +99,8 @@ for(i in 1:repeats) {
   I78<-invbeta(best_theta[25],best_theta[25]*0.2)  #Chronic duration in stage 7 of HIV infection
   PTr<-c(invbeta(best_theta[26],best_theta[26]*0.2),invbeta(best_theta[27],best_theta[27]*0.2),invbeta(best_theta[28],best_theta[28]*0.2)) #Nuñez et al AIDS 2018
 
+  RiskRed <- 1-(invbeta(0.86, 0.0973))
+
 Q<-HIVSIMPREP(Age = Age, NoSem = NoSem, NumHSH = NumHSH, NumHSHVIH = NumHSHVIH,
   ACD4 = ACD4, I7CD4 = I7CD4, Rest = Rest,
   G = G, Woff = Woff, W = W,
@@ -109,7 +110,7 @@ Q<-HIVSIMPREP(Age = Age, NoSem = NoSem, NumHSH = NumHSH, NumHSHVIH = NumHSHVIH,
   I12 = I12, I23 = I23, I34 = I34,
   I45 = I45, I56 = I56, I67 = I67,
   I78 = I78, PTr = PTr, years = years,
-  PropTR = PropTR, RiskRed = 1 - 0.86)
+  PropTR = PropTR, RiskRed = RiskRed)
 
 MAT[i,]<-(QALYCostP(Q))
 
@@ -132,7 +133,7 @@ x<-vector(length=2, mode="numeric")
 for (i in 1:ncores){x<-rbind(x,MAT1[[i]])}
 MAT2<-as.matrix(x[-1,])
 MAT2<-cbind(MAT2, "PrEP-TDF")
-save(MAT2, file="MAT2_LHS")
+save(MAT2, file="MAT2_LHS_R")
 MAT2
 ```
 
@@ -140,7 +141,6 @@ MAT2
 ## Simular con PrEP LCA
 ```{r}
 
-RiskRed<-1-0.96
 DistEdad<-vector(length=85)
 DistEdad[1:10]<-0.114106384/10
 DistEdad[11:20]<-0.116645332/10
@@ -163,14 +163,12 @@ WSusceptible<-1/52
 
 Treatcost<-188.54
 AIDScost<-19000/52
-PrEPcost<-898.82
-RiskRed<-1-0.96
+PrEPcost<-898.25
 
 
 PSAPrep<-function(repeats){
 for(a in 1:repeats) {
 
-  RiskRed<-1-0.96
   NumHSHVIH<-rnorm(1,best_theta[1],4000)
   NumHSH<-892955-NumHSHVIH#(INE)
   #Encuesta hospitalaria
@@ -192,7 +190,7 @@ for(a in 1:repeats) {
   Ch<-rnorm(1,best_theta[11],best_theta[11]*0.2) #Partner change rate in the high group 5-18/year Nichols et al. 2016
   Cl<-rnorm(1,best_theta[12],best_theta[12]*0.2)    #Partner change rate in the low group 0.5-5/year Nichols et al. 2016
   Cvl<-rnorm(1,best_theta[13],best_theta[13]*0.2)  #Partner change rate in the very low group 0.04-0.5/year Nichols et al. 2016
-  j1<-rdirichlet(1,c(best_theta[14], best_theta[15], best_theta[16], best_theta[17]))
+  j1<-rdirichlet(1,c(best_theta[14], best_theta[15], best_theta[16], best_theta[17]))*10
   nvh<-j1[1]    #Proportion of the total population in each group 5-15% Nichols et al. 2016
   nh<-j1[2]      # previo 0.4---30-50% Nichols et al. 2016
   nl<-j1[3]      # previo 0.3---10-35% Nichols et al. 2016
@@ -208,8 +206,9 @@ for(a in 1:repeats) {
   I78<-invbeta(best_theta[25],best_theta[25]*0.2)  #Chronic duration in stage 7 of HIV infection
   PTr<-c(invbeta(best_theta[26],best_theta[26]*0.2),invbeta(best_theta[27],best_theta[27]*0.2),
          invbeta(best_theta[28],best_theta[28]*0.2)) #Nuñez et al AIDS 2018
-
-
+  
+  RiskRed <- 1-(invbeta(0.96, 0.0434)) 
+  
 QP<-HIVSIMPREP(Age = Age, NoSem = NoSem, NumHSH = NumHSH, NumHSHVIH = NumHSHVIH,
   ACD4 = ACD4, I7CD4 = I7CD4, Rest = Rest,
   G = G, Woff = Woff, W = W,
@@ -219,7 +218,7 @@ QP<-HIVSIMPREP(Age = Age, NoSem = NoSem, NumHSH = NumHSH, NumHSHVIH = NumHSHVIH,
   I12 = I12, I23 = I23, I34 = I34,
   I45 = I45, I56 = I56, I67 = I67,
   I78 = I78, PTr = PTr, years = years,
-  PropTR = PropTR, RiskRed = 1-0.96)
+  PropTR = PropTR, RiskRed = RiskRed)
 
 MATP[a,]<-QALYCostP(QP)
 
@@ -243,7 +242,7 @@ x<-vector(length=2, mode="numeric")
 for (i in 1:ncores){x<-rbind(x,MAT1P3[[i]])}
 MAT2P3<-as.matrix(x[-1,])
 MAT2P3<-cbind(MAT2P3, "PREP-LEN")
-save(MAT2P3, file="MAT2LEN")
+save(MAT2P3, file="MAT2LEN_R")
 MAT2P3
 ```
 ```{r}

@@ -161,6 +161,7 @@ Q2P_year <- Q2P |>
 
 ggplot(Q2P_year, aes(x = Year, y = NewHIV)) +
   geom_point(size = 2) +
+  ylim(0,10000)+
   geom_line() +
   theme_classic()
 ```
@@ -220,7 +221,7 @@ QALYsP
 ```{r}
 Treatcost<-188.54
 AIDScost<-19000/52
-PrEPcost<- 26.94 # TDF/FTC 26.94, LCA 898.82
+PrEPcost<- 26.34 # TDF/FTC 26.94, LCA 898.82
 
 #AIDScostFinalP<-sum(Q1P[,"AIDS"])*AIDScost
 #TreatmentNotAIDSFinalP<-sum(Q1P[,"Treated"])*Treatcost
@@ -406,7 +407,7 @@ QALYsLCA
 ```{r}
 Treatcost<-188.54
 AIDScost<-19000/52
-PrEPcost<- 898.82 # TDF/FTC 26.94, LCA 898.82  LCA_2 390, LCA 3 195, LCA 4 98
+PrEPcost<- 898.25 # TDF/FTC 26.94, LCA 898.25  LCA_2 390, LCA 3 195, LCA 4 98
 #LCA 5 49, LCA 6 28.95, LCAMAX 30.5
 
 
@@ -436,7 +437,7 @@ ICER<-CostDiff/QalyDiff
 Result<-list(Cost, QALY, ICER)
 names(Result)<-c("Cost", "QALY", "ICER")
 save(Result, file="Result_TDFLCA_LHS_2")
-Result  # GDP per capita of Spain 33895.59€ https://www.statista.com/statistics/263773/gross-domestic-product-gdp-per-capita-in-spain/
+Result  # GDP per capita of Spain 33395.59€ https://www.statista.com/statistics/263773/gross-domestic-product-gdp-per-capita-in-spain/
 
 ```
 # Summary
@@ -460,7 +461,7 @@ table4
 ```{r}
 
 g1<-ggplot(table4, aes(x=QALY_difference, y=COST_difference, color=Intervention))+
-  geom_point(size=5)+
+  geom_point(size=3)+
   ggtitle("Cost-Effectiveness Analysis of PrEP")+
   geom_hline(yintercept =0)+
   geom_vline(xintercept =0)+
@@ -470,7 +471,7 @@ g1<-ggplot(table4, aes(x=QALY_difference, y=COST_difference, color=Intervention)
   xlab("Incremental QALYs")+
   theme_classic()+
   theme(plot.title = element_text(hjust = 0.5))+
-  geom_abline(slope=33895.59, color="red")
+  geom_abline(slope=33395, color="red")
 
 #Statista. Gross domestic product (GDP) per capita in Spain 2029 [Internet]. 2024 Dec [cited 2025 #Feb 9]. Available from: https://www.statista.com/statistics/263773/gross-domestic-product-gdp-per-c#apita-in-spain/           
 
@@ -494,7 +495,7 @@ g1
 discounted_prep_pw <- CostCalc(Q1LCA[, "PrEP"], C = 1)
 
 wtp_thresholds <- c(
-  `1x GDP/cap`  = 33895.59
+  `1x GDP/cap`  = 33395.59
 )
 
 threshold_prices <- sapply(wtp_thresholds, function(wtp) {
@@ -514,9 +515,9 @@ price_df
 
 ```{r}
 # Visualise ICER as a function of LCA weekly price
-# Zoom to a range around the threshold so the crossing point is visible
-price_max  <- ceiling(threshold_prices * 3)
-price_grid <- seq(0, price_max, length.out = 200)
+current_len_price <- 898.25
+price_max  <- current_len_price * 1.15
+price_grid <- seq(0, price_max, length.out = 500)
 
 icer_by_price <- sapply(price_grid, function(p) {
   cost_lca_at_p <- CostsLCA1 + CostsLCA2 + discounted_prep_pw * p
@@ -525,20 +526,80 @@ icer_by_price <- sapply(price_grid, function(p) {
 
 icer_df <- data.frame(Weekly_price = price_grid, ICER = icer_by_price)
 
-ggplot(icer_df, aes(x = Weekly_price, y = ICER)) +
+icer_at_current   <- (CostsLCA1 + CostsLCA2 + discounted_prep_pw * current_len_price - CostsP) / QalyDiff
+icer_at_threshold <- unname(wtp_thresholds)
+
+g2 <- ggplot(icer_df, aes(x = Weekly_price, y = ICER)) +
   geom_line(linewidth = 0.8) +
-  geom_hline(yintercept = wtp_thresholds, linetype = "dashed",
-             color = "forestgreen") +
-  geom_vline(xintercept = threshold_prices, linetype = "dotted",
-             color = "forestgreen") +
+  geom_segment(
+    data = data.frame(
+      x = threshold_prices, xend = threshold_prices,
+      y = 0, yend = icer_at_threshold
+    ),
+    aes(x = x, xend = xend, y = y, yend = yend),
+    linetype = "dotted", colour = "forestgreen", inherit.aes = FALSE
+  ) +
+  geom_segment(
+    data = data.frame(
+      x = 0, xend = threshold_prices,
+      y = icer_at_threshold, yend = icer_at_threshold
+    ),
+    aes(x = x, xend = xend, y = y, yend = yend),
+    linetype = "dotted", colour = "forestgreen", inherit.aes = FALSE
+  ) +
+  geom_point(
+    data = data.frame(x = threshold_prices, y = icer_at_threshold),
+    aes(x = x, y = y), size = 2.5, colour = "forestgreen",
+    shape = 18, inherit.aes = FALSE
+  ) +
   annotate("text",
-           x = threshold_prices + price_max * 0.05,
-           y = wtp_thresholds * 1.15,
-           label = paste0(names(wtp_thresholds),
-                          "\n(", round(threshold_prices, 1), " €/wk)"),
-           hjust = 0, size = 3.2, color = "forestgreen") +
-  labs(x = "Lenacapavir weekly cost (€)",
-       y = "ICER (€/QALY)",
-       title = "ICER vs lenacapavir price (LCA vs TDF/FTC)") +
+           x = threshold_prices, y = icer_at_threshold,
+           label = paste0(
+             names(wtp_thresholds),
+             " (", round(threshold_prices, 1), " \u20ac/wk)"
+           ),
+           hjust = -0.08, vjust = -0.8,
+           size = 3, colour = "forestgreen") +
+  geom_point(
+    data = data.frame(x = current_len_price, y = icer_at_current),
+    aes(x = x, y = y), size = 3, colour = "red", inherit.aes = FALSE
+  ) +
+  geom_segment(
+    aes(x = current_len_price, xend = current_len_price,
+        y = 0, yend = icer_at_current),
+    linetype = "dotted", colour = "red", inherit.aes = FALSE
+  ) +
+  annotate("text",
+           x = current_len_price, y = icer_at_current,
+           label = paste0(
+             "Current price (",
+             format(current_len_price, big.mark = ","), " \u20ac/wk)\n",
+             "ICER = ", format(round(icer_at_current), big.mark = ","),
+             " \u20ac/QALY"
+           ),
+           hjust = 1.05, vjust = -0.3,
+           size = 3, colour = "red") +
+  scale_x_continuous(labels = scales::comma) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(x = "Lenacapavir weekly cost (\u20ac)",
+       y = "ICER (\u20ac/QALY)",
+       title = "ICER vs lenacapavir price (LEN vs TDF/FTC)") +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+g2
+```
+```{r}
+ggplot(Q2P_year, aes(x = Year, y = NewHIV)) +
+  geom_point(size = 2) +
+  ylim(0,10000)+
+  geom_line() +
   theme_classic()
+
+ggplot(Q2LCA_year, aes(x = Year, y = NewHIV)) +
+  geom_point(size = 2) +
+  geom_line() +
+  ylim(0,10000)+
+  theme_classic()
+
 ```
