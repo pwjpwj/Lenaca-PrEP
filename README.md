@@ -219,10 +219,4 @@ invbeta_u.R etc.─┘                                              │
                                                     (scatter)      (NMB-based)
 ```
 
-## Citation
 
-[Add citation information here]
-
-## License
-
-[Add license information here]
