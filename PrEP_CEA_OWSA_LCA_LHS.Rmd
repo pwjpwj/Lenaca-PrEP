@@ -10,10 +10,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(dplyr)
 library(forcats)
-source("QALYCostP.R")
+source("R/QALYCostP.R")
 source("HIVSIM05.R")
-source("QalyCalc.R")
-source("CostCalc.R")
+source("R/QalyCalc.R")
+source("R/CostCalc.R")
 set.seed(123)
 
 ```

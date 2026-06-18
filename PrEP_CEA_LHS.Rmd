@@ -8,9 +8,9 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
-source("QalyCalc.R")
-source("CostCalc.R")
-source("QALYCost.R")
+source("R/QalyCalc.R")
+source("R/CostCalc.R")
+source("R/QALYCost.R")
 set.seed(123)
 ```
 

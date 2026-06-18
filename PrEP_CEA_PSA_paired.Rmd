@@ -13,12 +13,12 @@ library(parallel)
 library(tidyr)
 library(DirichletReg)
 library(BCEA)
-source("invbeta.R")
-source("invgamma.R")
+source("R/invbeta.R")
+source("R/invgamma.R")
 source("HIVSIM05.R")
-source("QalyCalc.R")
-source("CostCalc.R")
-source("QALYCostP.R")
+source("R/QalyCalc.R")
+source("R/CostCalc.R")
+source("R/QALYCostP.R")
 ```
 
 # Load best-fit parameters
